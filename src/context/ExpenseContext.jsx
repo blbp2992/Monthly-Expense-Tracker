@@ -12,8 +12,9 @@ import { getDaysInMonth, getRemainingDaysInMonth } from '../utils/formatters';
 const ExpenseContext = createContext();
 
 export const ExpenseProvider = ({ children }) => {
-  const initialYear = 2026;
-  const initialMonth = '07';
+  const now = new Date();
+  const initialYear = now.getFullYear();
+  const initialMonth = String(now.getMonth() + 1).padStart(2, '0');
 
   // Core Persisted States
   const [transactions, setTransactions] = useState(() => {
