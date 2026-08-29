@@ -83,7 +83,7 @@ export const DEMO_RECEIPTS = [
 ];
 
 export const parseReceiptWithGemini = async (base64Image, apiKey, categories) => {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
   // Strip base64 prefix
   const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');

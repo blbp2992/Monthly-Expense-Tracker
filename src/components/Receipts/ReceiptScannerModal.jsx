@@ -63,7 +63,7 @@ export const ReceiptScannerModal = () => {
           parsed = await parseReceiptWithGemini(base64, geminiApiKey.trim(), categories);
         } catch (apiErr) {
           console.warn('Gemini API call failed, falling back to smart parser:', apiErr);
-          addToast('Gemini API failed, using smart parser fallback', 'info');
+          addToast(`AI scan failed (${apiErr.message}) — showing placeholder demo data instead`, 'error');
           parsed = await parseReceiptSmartFallback(base64, file.name, categories);
         }
       } else {
