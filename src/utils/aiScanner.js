@@ -128,22 +128,52 @@ Return ONLY a valid JSON object without markdown formatting, code blocks, or pre
     }
   };
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody)
-  });
+  // Retry on transient errors (rate limits / model overload) before giving up
+  const RETRYABLE_STATUSES = new Set([429, 500, 503]);
+  const MAX_ATTEMPTS = 3;
+  let lastError;
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData?.error?.message || `API error: ${response.statusText}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+    } catch (networkErr) {
+      lastError = networkErr;
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, attempt * 1000));
+        continue;
+      }
+      throw lastError;
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      lastError = new Error(errorData?.error?.message || `API error: ${response.statusText}`);
+      if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, attempt * 1000));
+        continue;
+      }
+      throw lastError;
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) throw new Error('No content returned from AI');
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      // Occasionally the model wraps JSON in markdown fences despite instructions
+      const stripped = rawText.replace(/^```(?:json)?\s*|\s*```$/g, '');
+      return JSON.parse(stripped);
+    }
   }
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error('No content returned from AI');
-
-  return JSON.parse(rawText);
+  throw lastError;
 };
 
 // Built-in intelligent simulated parser (fallback if no API key is provided)
