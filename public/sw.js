@@ -3,9 +3,9 @@
 
 const CACHE_NAME = 'expanses-tracker-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icon.svg',
+  '/Monthly-Expense-Tracker/',
+  '/Monthly-Expense-Tracker/manifest.json',
+  '/Monthly-Expense-Tracker/icon.svg',
 ];
 
 // Install: pre-cache the app shell
