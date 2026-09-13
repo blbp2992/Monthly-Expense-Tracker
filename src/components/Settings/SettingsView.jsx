@@ -63,6 +63,7 @@ export const SettingsView = () => {
     deleteCategory,
     clearAllData,
     importBackupData,
+    itemCategoryMemory,
     addToast
   } = useExpense();
 
@@ -103,7 +104,8 @@ export const SettingsView = () => {
       categories,
       budgets,
       subscriptions,
-      currency
+      currency,
+      itemCategoryMemory
     };
     exportDataAsJSON(fullState);
     addToast('Backup file downloaded');

@@ -66,6 +66,7 @@ export const TransactionModal = () => {
   if (!isTxModalOpen) return null;
 
   const filteredCategories = categories.filter((c) => c.type === type);
+  const hasItemCategories = Boolean(editingTx?.receiptItems?.some((it) => it.categoryId));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -241,6 +242,8 @@ export const TransactionModal = () => {
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
                 required
+                disabled={hasItemCategories}
+                title={hasItemCategories ? 'Set by the receipt items' : undefined}
               >
                 {filteredCategories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -248,6 +251,11 @@ export const TransactionModal = () => {
                   </option>
                 ))}
               </select>
+              {hasItemCategories && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                  Categories come from the receipt items — change them via the Receipt button.
+                </div>
+              )}
             </div>
 
             <div className="form-group">

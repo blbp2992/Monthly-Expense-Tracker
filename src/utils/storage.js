@@ -11,11 +11,14 @@ export const loadFromStorage = (key, fallback) => {
   }
 };
 
+// Returns false when the write fails (e.g. browser storage quota exceeded)
 export const saveToStorage = (key, value) => {
   try {
     localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(value));
+    return true;
   } catch (error) {
     console.error(`Error saving key "${key}" to localStorage:`, error);
+    return false;
   }
 };
 

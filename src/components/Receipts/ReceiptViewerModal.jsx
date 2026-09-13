@@ -1,22 +1,51 @@
 import React from 'react';
 import { useExpense } from '../../context/ExpenseContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { getCategoryAllocations } from '../../utils/receiptCategories';
 import { CategoryIcon } from '../UI/CategoryIcon';
-import { X, Receipt, ShoppingCart, Download } from 'lucide-react';
+import { X, Receipt, ShoppingCart, Download, FileText } from 'lucide-react';
+
+// Opens a stored data: URL PDF in a new tab (browsers block navigating to data: URLs directly)
+const openPdf = (dataUrl) => {
+  const [meta, base64] = dataUrl.split(',');
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: meta.match(/data:([^;]+)/)?.[1] || 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
 
 export const ReceiptViewerModal = () => {
-  const { receiptViewerTx, setReceiptViewerTx, categories, currency } = useExpense();
+  const {
+    receiptViewerTx,
+    setReceiptViewerTx,
+    transactions,
+    categories,
+    currency,
+    updateReceiptItemCategory,
+    addToast
+  } = useExpense();
 
   if (!receiptViewerTx) return null;
 
-  const tx = receiptViewerTx;
-  const cat = categories.find((c) => c.id === tx.categoryId) || {
-    name: 'Expense',
-    color: '#6366f1',
-    icon: 'Receipt'
-  };
+  // Read the live transaction so category edits show immediately
+  const tx = transactions.find((t) => t.id === receiptViewerTx.id) || receiptViewerTx;
+  const getCategory = (id) =>
+    categories.find((c) => c.id === id) || {
+      name: 'Expense',
+      color: '#6366f1',
+      icon: 'Receipt'
+    };
+  const cat = getCategory(tx.categoryId);
 
   const hasItems = tx.receiptItems && tx.receiptItems.length > 0;
+  const expenseCategories = categories.filter((c) => c.type === 'expense');
+  const allocations = getCategoryAllocations(tx).sort((a, b) => b.amount - a.amount);
+
+  const handleItemCategoryChange = (index, categoryId) => {
+    updateReceiptItemCategory(tx.id, index, categoryId);
+    addToast(`"${tx.receiptItems[index].name}" moved to ${getCategory(categoryId).name} — remembered for future scans`);
+  };
 
   return (
     <div className="modal-overlay" onClick={() => setReceiptViewerTx(null)}>
@@ -43,7 +72,7 @@ export const ReceiptViewerModal = () => {
                 {tx.description}
               </h2>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {formatDate(tx.date)} • {cat.name}
+                {formatDate(tx.date)} • {allocations.length > 1 ? `${allocations.length} categories` : cat.name}
               </div>
             </div>
           </div>
@@ -60,6 +89,8 @@ export const ReceiptViewerModal = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
               padding: '1rem 1.25rem',
               background: 'var(--bg-card)',
               borderRadius: 'var(--radius-lg)',
@@ -91,7 +122,42 @@ export const ReceiptViewerModal = () => {
                 <span>Save Image</span>
               </a>
             )}
+
+            {tx.receiptPdf && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
+                onClick={() => openPdf(tx.receiptPdf)}
+              >
+                <FileText size={14} />
+                <span>Open PDF</span>
+              </button>
+            )}
           </div>
+
+          {/* Spending split by category */}
+          {allocations.length > 1 && (
+            <div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                Counted on your dashboard as
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                {allocations.map(({ categoryId, amount }) => {
+                  const c = getCategory(categoryId);
+                  return (
+                    <span
+                      key={categoryId}
+                      className="badge-tag"
+                      style={{ backgroundColor: `${c.color}15`, color: c.color, fontWeight: 600 }}
+                    >
+                      {c.name} · {formatCurrency(amount, currency.code, currency.symbol)}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Itemized Breakdown if available */}
           {hasItems && (
@@ -114,14 +180,15 @@ export const ReceiptViewerModal = () => {
                 style={{
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
-                  maxHeight: '200px',
-                  overflowY: 'auto'
+                  maxHeight: '260px',
+                  overflow: 'auto'
                 }}
               >
                 <table className="custom-table" style={{ fontSize: '0.85rem' }}>
                   <thead>
                     <tr>
                       <th>Item</th>
+                      <th style={{ width: '150px' }}>Category</th>
                       <th style={{ textAlign: 'center', width: '50px' }}>Qty</th>
                       <th style={{ textAlign: 'right', width: '90px' }}>Price</th>
                     </tr>
@@ -131,11 +198,20 @@ export const ReceiptViewerModal = () => {
                       <tr key={i}>
                         <td>
                           <div style={{ fontWeight: 600 }}>{item.name}</div>
-                          {item.categoryId && (
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              {categories.find((c) => c.id === item.categoryId)?.name || ''}
-                            </div>
-                          )}
+                        </td>
+                        <td>
+                          <select
+                            className="form-input"
+                            style={{ padding: '0.3rem 0.45rem', fontSize: '0.8rem' }}
+                            value={item.categoryId || tx.categoryId}
+                            onChange={(e) => handleItemCategoryChange(i, e.target.value)}
+                          >
+                            {expenseCategories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td style={{ textAlign: 'center' }}>{item.qty || 1}</td>
                         <td style={{ textAlign: 'right', fontWeight: 600 }}>
@@ -172,6 +248,13 @@ export const ReceiptViewerModal = () => {
                   style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain' }}
                 />
               </div>
+            </div>
+          )}
+
+          {tx.receiptPdf && (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Receipt size={14} />
+              <span>Attached PDF: {tx.receiptFileName || 'receipt.pdf'}</span>
             </div>
           )}
 

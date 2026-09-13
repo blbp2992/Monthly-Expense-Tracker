@@ -3,6 +3,11 @@ import { DEFAULT_CATEGORIES, DEFAULT_CURRENCIES } from '../data/initialData';
 import { loadFromStorage, saveToStorage } from '../utils/storage';
 import { removeLegacyDemoData } from '../utils/demoCleanup';
 import { getDaysInMonth, getRemainingDaysInMonth } from '../utils/formatters';
+import {
+  getCategoryAllocations,
+  getPrimaryCategoryId,
+  normalizeItemName
+} from '../utils/receiptCategories';
 
 removeLegacyDemoData();
 
@@ -46,6 +51,11 @@ export const ExpenseProvider = ({ children }) => {
     loadFromStorage('gemini_api_key', '')
   );
 
+  // Categories the user assigned to receipt items, keyed by normalized item name
+  const [itemCategoryMemory, setItemCategoryMemory] = useState(() =>
+    loadFromStorage('item_category_memory', {})
+  );
+
   // Active View & Filter Navigation States
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
@@ -86,7 +96,12 @@ export const ExpenseProvider = ({ children }) => {
 
   // Sync to Storage
   useEffect(() => {
-    saveToStorage('transactions', transactions);
+    if (!saveToStorage('transactions', transactions)) {
+      addToast(
+        'Browser storage is full — your latest transactions were NOT saved and will be lost on reload. Export a backup now.',
+        'error'
+      );
+    }
   }, [transactions]);
 
   useEffect(() => {
@@ -108,6 +123,10 @@ export const ExpenseProvider = ({ children }) => {
   useEffect(() => {
     saveToStorage('gemini_api_key', geminiApiKey);
   }, [geminiApiKey]);
+
+  useEffect(() => {
+    saveToStorage('item_category_memory', itemCategoryMemory);
+  }, [itemCategoryMemory]);
 
   useEffect(() => {
     saveToStorage('theme', theme);
@@ -155,7 +174,9 @@ export const ExpenseProvider = ({ children }) => {
         totalIncome += amt;
       } else if (tx.type === 'expense') {
         totalExpenses += amt;
-        categorySpendMap[tx.categoryId] = (categorySpendMap[tx.categoryId] || 0) + amt;
+        getCategoryAllocations(tx).forEach(({ categoryId, amount }) => {
+          categorySpendMap[categoryId] = (categorySpendMap[categoryId] || 0) + amount;
+        });
       }
     });
 
@@ -193,14 +214,19 @@ export const ExpenseProvider = ({ children }) => {
           const q = searchQuery.toLowerCase();
           const matchDesc = (tx.description || '').toLowerCase().includes(q);
           const matchNote = (tx.notes || '').toLowerCase().includes(q);
-          const cat = categories.find((c) => c.id === tx.categoryId);
-          const matchCat = cat && cat.name.toLowerCase().includes(q);
+          const matchCat = getCategoryAllocations(tx).some(({ categoryId }) => {
+            const cat = categories.find((c) => c.id === categoryId);
+            return cat && cat.name.toLowerCase().includes(q);
+          });
           // Also search itemized names if available
           const matchItems = tx.receiptItems && tx.receiptItems.some((item) => item.name.toLowerCase().includes(q));
           if (!matchDesc && !matchNote && !matchCat && !matchItems) return false;
         }
 
-        if (filterCategory !== 'all' && tx.categoryId !== filterCategory) {
+        if (
+          filterCategory !== 'all' &&
+          !getCategoryAllocations(tx).some(({ categoryId }) => categoryId === filterCategory)
+        ) {
           return false;
         }
 
@@ -379,6 +405,47 @@ export const ExpenseProvider = ({ children }) => {
     addToast('All expense data cleared', 'info');
   };
 
+  // Receipt item category learning
+  const rememberItemCategories = (items) => {
+    const updates = {};
+    items.forEach(({ name, categoryId }) => {
+      const key = normalizeItemName(name);
+      if (key && categoryId) updates[key] = categoryId;
+    });
+    if (Object.keys(updates).length > 0) {
+      setItemCategoryMemory((prev) => ({ ...prev, ...updates }));
+    }
+  };
+
+  // Returns items with remembered categories applied (only for categories that still exist)
+  const applyItemCategoryMemory = (items) =>
+    items.map((item) => {
+      const remembered = itemCategoryMemory[normalizeItemName(item.name)];
+      if (remembered && remembered !== item.categoryId && categories.some((c) => c.id === remembered)) {
+        return { ...item, categoryId: remembered, learnedCategory: true };
+      }
+      return item;
+    });
+
+  const updateReceiptItemCategory = (txId, itemIndex, categoryId) => {
+    const item = transactions.find((tx) => tx.id === txId)?.receiptItems?.[itemIndex];
+    if (!item) return;
+    setTransactions((prev) =>
+      prev.map((tx) => {
+        if (tx.id !== txId || !tx.receiptItems?.[itemIndex]) return tx;
+        const receiptItems = tx.receiptItems.map((it, i) =>
+          i === itemIndex ? { ...it, categoryId } : it
+        );
+        return {
+          ...tx,
+          receiptItems,
+          categoryId: getPrimaryCategoryId(receiptItems, tx.categoryId)
+        };
+      })
+    );
+    rememberItemCategories([{ name: item.name, categoryId }]);
+  };
+
   const importBackupData = (imported) => {
     try {
       if (imported.transactions) setTransactions(imported.transactions);
@@ -386,6 +453,7 @@ export const ExpenseProvider = ({ children }) => {
       if (imported.budgets) setBudgets(imported.budgets);
       if (imported.subscriptions) setSubscriptions(imported.subscriptions);
       if (imported.currency) setCurrency(imported.currency);
+      if (imported.itemCategoryMemory) setItemCategoryMemory(imported.itemCategoryMemory);
       addToast('Backup data imported successfully!');
     } catch {
       addToast('Failed to import backup file. Invalid format.', 'error');
@@ -474,6 +542,10 @@ export const ExpenseProvider = ({ children }) => {
 
         clearAllData,
         importBackupData,
+        itemCategoryMemory,
+        rememberItemCategories,
+        applyItemCategoryMemory,
+        updateReceiptItemCategory,
         addToast,
         removeToast
       }}

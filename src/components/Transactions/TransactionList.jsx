@@ -3,6 +3,7 @@ import { useExpense } from '../../context/ExpenseContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { PAYMENT_METHODS } from '../../data/initialData';
 import { CategoryIcon } from '../UI/CategoryIcon';
+import { getCategoryAllocations } from '../../utils/receiptCategories';
 import { TransactionFilter } from './TransactionFilter';
 import {
   Receipt,
@@ -202,7 +203,10 @@ export const TransactionList = () => {
               {filteredTransactions.map((tx) => {
                 const cat = getCategory(tx.categoryId);
                 const isIncome = tx.type === 'income';
-                const hasReceipt = Boolean(tx.receiptImage || (tx.receiptItems && tx.receiptItems.length > 0));
+                const hasReceipt = Boolean(
+                  tx.receiptImage || tx.receiptPdf || (tx.receiptItems && tx.receiptItems.length > 0)
+                );
+                const categoryCount = getCategoryAllocations(tx).length;
 
                 return (
                   <tr key={tx.id}>
@@ -257,6 +261,11 @@ export const TransactionList = () => {
                       >
                         {cat.name}
                       </span>
+                      {categoryCount > 1 && (
+                        <div className="tx-date-sub" title="Receipt items are counted under their own categories">
+                          +{categoryCount - 1} more {categoryCount - 1 === 1 ? 'category' : 'categories'}
+                        </div>
+                      )}
                     </td>
 
                     {/* Payment Method */}

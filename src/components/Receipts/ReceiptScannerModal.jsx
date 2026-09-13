@@ -1,6 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
-import { resizeImageToBase64, parseReceiptWithGemini } from '../../utils/aiScanner';
+import {
+  resizeImageToBase64,
+  readFileAsDataURL,
+  parseReceiptWithGemini,
+  checkReceiptDate,
+  SCAN_TIMEOUT_MS
+} from '../../utils/aiScanner';
+import { getPrimaryCategoryId } from '../../utils/receiptCategories';
 import { formatCurrency } from '../../utils/formatters';
 import { PAYMENT_METHODS } from '../../data/initialData';
 import {
@@ -14,8 +21,16 @@ import {
   Split,
   Layers,
   Camera,
-  AlertCircle
+  AlertCircle,
+  Brain
 } from 'lucide-react';
+
+// Gemini accepts inline files up to ~20MB per request
+const MAX_PDF_BYTES = 15 * 1024 * 1024;
+// Larger PDFs are scanned but not kept, to avoid filling browser storage
+const MAX_STORED_PDF_CHARS = 750 * 1024;
+
+const stripScanFields = ({ suggestedCategoryId, learnedCategory, ...item }) => item;
 
 export const ReceiptScannerModal = () => {
   const {
@@ -26,52 +41,161 @@ export const ReceiptScannerModal = () => {
     geminiApiKey,
     addTransaction,
     addBatchTransactions,
-    addToast
+    addToast,
+    setSelectedMonth,
+    setSelectedYear,
+    applyItemCategoryMemory,
+    rememberItemCategories
   } = useExpense();
 
   const fileInputRef = useRef(null);
+  const scanAbortRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [scanSeconds, setScanSeconds] = useState(0);
+  const [scanStatus, setScanStatus] = useState(null);
+
+  useEffect(() => {
+    if (!isScanning) return;
+    setScanSeconds(0);
+    setScanStatus(null);
+    const interval = setInterval(() => setScanSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isScanning]);
 
   if (!isReceiptScannerOpen) return null;
 
   const expenseCategories = categories.filter((c) => c.type === 'expense');
+  const dateCheck = scanResult ? checkReceiptDate(scanResult.date) : null;
+
+  const formatReceiptDate = (iso) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  // Show the dashboard for the month the receipt was saved into
+  const jumpToReceiptMonth = () => {
+    const [y, m] = (scanResult.date || '').split('-');
+    if (!y || !m) return;
+    setSelectedYear(Number(y));
+    setSelectedMonth(m);
+  };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
+    // Reset so picking the same photo again still triggers a new scan
+    e.target.value = '';
     if (!file) return;
     processFile(file);
   };
 
   const processFile = async (file) => {
+    const controller = new AbortController();
+    scanAbortRef.current = controller;
     try {
-      setIsScanning(true);
       setErrorMsg(null);
-      const base64 = await resizeImageToBase64(file);
-      setImagePreview(base64);
+      setImagePreview(null);
+      setPdfFile(null);
 
       if (!geminiApiKey || !geminiApiKey.trim()) {
         setErrorMsg('Add your Google Gemini API key in Settings to scan receipts.');
-        setIsScanning(false);
         return;
       }
 
-      const parsed = await parseReceiptWithGemini(base64, geminiApiKey.trim(), categories);
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      if (isPdf && file.size > MAX_PDF_BYTES) {
+        setErrorMsg(`This PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is ${MAX_PDF_BYTES / 1024 / 1024} MB.`);
+        return;
+      }
+
+      setIsScanning(true);
+
+      let scanData;
+      if (isPdf) {
+        scanData = await readFileAsDataURL(file);
+        setPdfFile({ name: file.name, dataUrl: scanData });
+      } else {
+        // Small copy for preview/storage, larger copy so the AI can read small print
+        setImagePreview(await resizeImageToBase64(file));
+        scanData = await resizeImageToBase64(file, 3072, 0.9);
+      }
+
+      const parsed = await parseReceiptWithGemini(scanData, geminiApiKey.trim(), categories, {
+        signal: controller.signal,
+        onStatus: setScanStatus,
+        mimeType: isPdf ? 'application/pdf' : 'image/jpeg'
+      });
       if (!parsed || !Array.isArray(parsed.items)) {
         console.error('Unexpected Gemini response:', parsed);
         throw new Error('AI returned an unexpected response format');
       }
 
-      setScanResult(parsed);
+      // Clean up item values, then override AI categories with ones the user taught us
+      const validCategoryIds = new Set(expenseCategories.map((c) => c.id));
+      const fallbackCategoryId = validCategoryIds.has('cat_other_exp')
+        ? 'cat_other_exp'
+        : expenseCategories[0]?.id;
+      const items = applyItemCategoryMemory(
+        parsed.items.map((it) => ({
+          name: String(it.name || '').trim() || 'Item',
+          qty: Number(it.qty) > 0 ? Number(it.qty) : 1,
+          price: Number(it.price) || 0,
+          categoryId: validCategoryIds.has(it.categoryId) ? it.categoryId : fallbackCategoryId
+        }))
+      ).map((it) => ({ ...it, suggestedCategoryId: it.categoryId }));
+
+      const learnedCount = items.filter((it) => it.learnedCategory).length;
+      if (learnedCount > 0) {
+        addToast(`Applied your saved category for ${learnedCount} item${learnedCount > 1 ? 's' : ''}`, 'info');
+      }
+
+      setScanResult({
+        ...parsed,
+        items,
+        tax: Number(parsed.tax) || 0,
+        total: Number(parsed.total) || 0
+      });
       setIsScanning(false);
       addToast('Receipt analyzed successfully!');
     } catch (err) {
+      if (controller.signal.aborted) {
+        setIsScanning(false);
+        return;
+      }
       console.error(err);
-      setErrorMsg(`Failed to analyze receipt${err?.message ? `: ${err.message}` : ''}. Please try again.`);
+      const reason = err?.message ? `: ${err.message.replace(/\.+$/, '')}` : '';
+      setErrorMsg(`Failed to analyze receipt${reason}. Please try again.`);
       setIsScanning(false);
+    } finally {
+      if (scanAbortRef.current === controller) scanAbortRef.current = null;
     }
+  };
+
+  const handleCancelScan = () => {
+    scanAbortRef.current?.abort();
+    setIsScanning(false);
+    setImagePreview(null);
+    setPdfFile(null);
+  };
+
+  // Saves category corrections for next time and returns items without scan-only fields
+  const finalizeItems = () => {
+    const corrections = scanResult.items.filter((it) => it.categoryId !== it.suggestedCategoryId);
+    rememberItemCategories(corrections);
+    return scanResult.items.map(stripScanFields);
+  };
+
+  // Receipt file fields to store on a transaction (PDFs only if small enough)
+  const getAttachment = () => {
+    if (imagePreview) return { receiptImage: imagePreview };
+    if (pdfFile && pdfFile.dataUrl.length <= MAX_STORED_PDF_CHARS) {
+      return { receiptPdf: pdfFile.dataUrl, receiptFileName: pdfFile.name };
+    }
+    if (pdfFile) {
+      addToast('PDF is too large to keep in browser storage — the scanned items were saved without it.', 'info');
+    }
+    return {};
   };
 
   // Editable item handlers
@@ -127,25 +251,28 @@ export const ReceiptScannerModal = () => {
   const handleSaveAsSingle = () => {
     if (!scanResult) return;
 
-    // Pick dominant category or category of first item
-    const dominantCat = scanResult.items[0]?.categoryId || 'cat_groceries';
-    const itemsSummary = scanResult.items
+    const items = finalizeItems();
+    // Headline category is the one with the biggest share; the dashboard still
+    // counts every item under its own category
+    const primaryCat = getPrimaryCategoryId(items, expenseCategories[0]?.id || 'cat_groceries');
+    const itemsSummary = items
       .map((it) => `${it.qty > 1 ? `${it.qty}x ` : ''}${it.name} (${currency.symbol}${it.price})`)
       .join(', ');
 
     addTransaction({
       type: 'expense',
       amount: scanResult.total,
-      categoryId: dominantCat,
+      categoryId: primaryCat,
       date: scanResult.date,
       paymentMethod: scanResult.paymentMethod || 'credit_card',
       description: scanResult.merchant || 'Receipt Expense',
-      notes: `Receipt with ${scanResult.items.length} items: ${itemsSummary.slice(0, 100)}...`,
-      receiptImage: imagePreview,
-      receiptItems: scanResult.items,
+      notes: `Receipt with ${items.length} items: ${itemsSummary.slice(0, 100)}...`,
+      ...getAttachment(),
+      receiptItems: items,
       tax: scanResult.tax
     });
 
+    jumpToReceiptMonth();
     handleClose();
   };
 
@@ -153,7 +280,9 @@ export const ReceiptScannerModal = () => {
   const handleSaveAsSplit = () => {
     if (!scanResult || !scanResult.items.length) return;
 
-    const txList = scanResult.items.map((it) => ({
+    // Attach the receipt file to the first item only; a copy per item quickly fills browser storage
+    const attachment = getAttachment();
+    const txList = finalizeItems().map((it, idx) => ({
       type: 'expense',
       amount: it.price * (it.qty || 1),
       categoryId: it.categoryId,
@@ -161,7 +290,7 @@ export const ReceiptScannerModal = () => {
       paymentMethod: scanResult.paymentMethod || 'credit_card',
       description: `${scanResult.merchant}: ${it.name}`,
       notes: `Itemized from receipt (Qty: ${it.qty || 1})`,
-      receiptImage: imagePreview
+      ...(idx === 0 ? attachment : {})
     }));
 
     // If there is a tax item, log it if > 0
@@ -173,18 +302,23 @@ export const ReceiptScannerModal = () => {
         date: scanResult.date,
         paymentMethod: scanResult.paymentMethod || 'credit_card',
         description: `${scanResult.merchant} (Tax & Fees)`,
-        notes: 'Extracted tax from receipt',
-        receiptImage: imagePreview
+        notes: 'Extracted tax from receipt'
       });
     }
 
-    addBatchTransactions(txList, `Logged ${txList.length} split categorized expenses!`);
+    addBatchTransactions(
+      txList,
+      `Logged ${txList.length} split expenses on ${formatReceiptDate(scanResult.date)}`
+    );
+    jumpToReceiptMonth();
     handleClose();
   };
 
   const handleClose = () => {
+    scanAbortRef.current?.abort();
     setIsReceiptScannerOpen(false);
     setImagePreview(null);
+    setPdfFile(null);
     setScanResult(null);
     setIsScanning(false);
     setErrorMsg(null);
@@ -217,7 +351,7 @@ export const ReceiptScannerModal = () => {
                 AI Receipt Scanner & Item Breakdown
               </h2>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Upload any receipt image to auto-detect store, date, itemized prices, and categories
+                Upload a receipt photo or PDF to auto-detect store, date, itemized prices, and categories
               </div>
             </div>
           </div>
@@ -245,8 +379,7 @@ export const ReceiptScannerModal = () => {
               <input
                 type="file"
                 ref={fileInputRef}
-                accept="image/*"
-                capture="environment"
+                accept="image/*,application/pdf,.pdf"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
@@ -266,10 +399,10 @@ export const ReceiptScannerModal = () => {
                 <UploadCloud size={28} />
               </div>
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.35rem' }}>
-                Upload or Take a Photo of Receipt
+                Upload a Receipt Photo or PDF
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Supports JPG, PNG, WEBP. AI will extract items, prices, tax, and categories.
+                Supports JPG, PNG, WEBP photos and PDF e-receipts. AI will extract items, prices, tax, and categories.
               </p>
             </div>
 
@@ -324,8 +457,13 @@ export const ReceiptScannerModal = () => {
                   style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
                 />
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', height: '100%', padding: '0.75rem' }}>
                   <FileText size={48} color="var(--text-subtle)" />
+                  {pdfFile && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                      {pdfFile.name}
+                    </span>
+                  )}
                 </div>
               )}
               {/* Laser Line */}
@@ -345,9 +483,16 @@ export const ReceiptScannerModal = () => {
             <div>
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Analyzing Receipt with AI...</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Detecting items, prices, subtotal, tax, and categorizing...
+                {scanStatus || 'Detecting items, prices, subtotal, tax, and categorizing...'}
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', marginTop: '0.5rem' }}>
+                {scanSeconds}s elapsed · times out after {SCAN_TIMEOUT_MS / 1000}s
               </p>
             </div>
+            <button className="btn btn-secondary" onClick={handleCancelScan}>
+              <X size={16} />
+              <span>Cancel Scan</span>
+            </button>
           </div>
         )}
 
@@ -373,7 +518,24 @@ export const ReceiptScannerModal = () => {
                   className="form-input"
                   value={scanResult.date || ''}
                   onChange={(e) => setScanResult({ ...scanResult, date: e.target.value })}
+                  style={dateCheck ? { borderColor: 'var(--warning-amber)' } : undefined}
                 />
+                {dateCheck && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--warning-amber)', marginTop: '0.35rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.4rem' }}>
+                    <AlertCircle size={14} />
+                    <span>{dateCheck.warning}</span>
+                    {dateCheck.suggestion && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+                        onClick={() => setScanResult({ ...scanResult, date: dateCheck.suggestion })}
+                      >
+                        Use {formatReceiptDate(dateCheck.suggestion)}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -426,9 +588,14 @@ export const ReceiptScannerModal = () => {
                   marginBottom: '0.6rem'
                 }}
               >
-                <label className="form-label" style={{ margin: 0 }}>
-                  Itemized Cost Breakdown ({scanResult.items.length} items)
-                </label>
+                <div>
+                  <label className="form-label" style={{ margin: 0 }}>
+                    Itemized Cost Breakdown ({scanResult.items.length} items)
+                  </label>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    Each item counts toward its own category on the dashboard. Category changes are remembered for next time.
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -452,8 +619,8 @@ export const ReceiptScannerModal = () => {
                   <thead>
                     <tr>
                       <th>Item</th>
-                      <th style={{ width: '65px' }}>Qty</th>
-                      <th style={{ width: '90px' }}>Price</th>
+                      <th style={{ width: '80px' }}>Qty</th>
+                      <th style={{ width: '105px' }}>Price</th>
                       <th style={{ width: '150px' }}>Category</th>
                       <th style={{ width: '40px' }}></th>
                     </tr>
@@ -503,6 +670,15 @@ export const ReceiptScannerModal = () => {
                               </option>
                             ))}
                           </select>
+                          {item.learnedCategory && item.categoryId === item.suggestedCategoryId && (
+                            <div
+                              style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                              title="Category applied from your earlier correction"
+                            >
+                              <Brain size={11} />
+                              <span>Remembered</span>
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
@@ -556,6 +732,7 @@ export const ReceiptScannerModal = () => {
                 onClick={() => {
                   setScanResult(null);
                   setImagePreview(null);
+                  setPdfFile(null);
                 }}
               >
                 Scan Another
