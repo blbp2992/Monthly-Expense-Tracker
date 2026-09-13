@@ -606,132 +606,27 @@ export const mapRowsToTransactions = ({
   });
 };
 
+const TEMPLATE_HEADERS = ['Date', 'Description', 'Amount', 'Type', 'Category', 'Payment Method', 'Notes'];
+
 /**
- * Downloads sample CSV template
+ * Downloads blank CSV template (headers only)
  */
 export const downloadSampleCSV = () => {
-  const sampleHeaders = ['Date', 'Description', 'Amount', 'Type', 'Category', 'Payment Method', 'Notes'];
-  const sampleRows = [
-    ['2026-07-08', 'Frozen Pork (1kg)', '7.55', 'expense', 'Protein', 'Credit Card', 'Grocery run'],
-    ['2026-07-08', 'Meiji Milk (4L)', '13.40', 'expense', 'Dairy', 'Credit Card', 'Weekly milk supply'],
-    ['2026-07-08', 'Watermelon (3-4kg)', '4.50', 'expense', 'Fruits', 'Credit Card', 'Fresh produce'],
-    ['2026-07-08', 'Spinach (200g)', '1.75', 'expense', 'Vegetable', 'Credit Card', 'Organic greens'],
-    ['2026-07-13', 'Beef cubes', '6.50', 'expense', 'Protein', 'Credit Card', 'Dinner stew'],
-    ['2026-07-13', 'Eggs (12-720g)', '3.95', 'expense', 'Eggs', 'Credit Card', 'Farm fresh'],
-    ['2026-07-01', 'Monthly Salary Paycheck', '4500.00', 'income', 'Salary & Wages', 'Bank Transfer', 'Direct payroll deposit'],
-    ['2026-07-10', 'Netflix Premium 4K', '15.99', 'expense', 'Subscriptions', 'Credit Card', 'Auto recurring charge'],
-    ['2026-07-15', 'Electric & Water Utility', '125.40', 'expense', 'Utilities & Bills', 'Debit Card', 'SP Services'],
-    ['2026-07-19', 'Starbucks Coffee & Bagel', '9.50', 'expense', 'Food & Dining', 'Digital Wallet', 'Morning breakfast']
-  ];
-
-  const csvContent = 'data:text/csv;charset=utf-8,' + [sampleHeaders.join(','), ...sampleRows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
+  const csvContent = 'data:text/csv;charset=utf-8,' + TEMPLATE_HEADERS.join(',') + '\n';
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', 'sample_expenses_template.csv');
+  link.setAttribute('download', 'expenses_template.csv');
   document.body.appendChild(link);
   link.click();
   link.remove();
 };
 
 /**
- * Downloads sample Excel (.xlsx) template
+ * Downloads blank Excel (.xlsx) template (headers only)
  */
 export const downloadSampleExcel = () => {
-  const sampleData = [
-    {
-      Date: '2026-07-08',
-      Description: 'Frozen Pork (1kg)',
-      Amount: 7.55,
-      Type: 'expense',
-      Category: 'Protein',
-      'Payment Method': 'Credit Card',
-      Notes: 'Grocery run'
-    },
-    {
-      Date: '2026-07-08',
-      Description: 'Meiji Milk (4L)',
-      Amount: 13.40,
-      Type: 'expense',
-      Category: 'Dairy',
-      'Payment Method': 'Credit Card',
-      Notes: 'Weekly milk supply'
-    },
-    {
-      Date: '2026-07-08',
-      Description: 'Watermelon (3-4kg)',
-      Amount: 4.50,
-      Type: 'expense',
-      Category: 'Fruits',
-      'Payment Method': 'Credit Card',
-      Notes: 'Fresh produce'
-    },
-    {
-      Date: '2026-07-08',
-      Description: 'Spinach (200g)',
-      Amount: 1.75,
-      Type: 'expense',
-      Category: 'Vegetable',
-      'Payment Method': 'Credit Card',
-      Notes: 'Organic greens'
-    },
-    {
-      Date: '2026-07-13',
-      Description: 'Beef cubes',
-      Amount: 6.50,
-      Type: 'expense',
-      Category: 'Protein',
-      'Payment Method': 'Credit Card',
-      Notes: 'Dinner stew'
-    },
-    {
-      Date: '2026-07-13',
-      Description: 'Eggs (12-720g)',
-      Amount: 3.95,
-      Type: 'expense',
-      Category: 'Eggs',
-      'Payment Method': 'Credit Card',
-      Notes: 'Farm fresh'
-    },
-    {
-      Date: '2026-07-01',
-      Description: 'Monthly Salary Paycheck',
-      Amount: 4500.00,
-      Type: 'income',
-      Category: 'Salary & Wages',
-      'Payment Method': 'Bank Transfer',
-      Notes: 'Direct payroll deposit'
-    },
-    {
-      Date: '2026-07-10',
-      Description: 'Netflix Premium 4K',
-      Amount: 15.99,
-      Type: 'expense',
-      Category: 'Subscriptions',
-      'Payment Method': 'Credit Card',
-      Notes: 'Auto recurring charge'
-    },
-    {
-      Date: '2026-07-15',
-      Description: 'Electric & Water Utility',
-      Amount: 125.40,
-      Type: 'expense',
-      Category: 'Utilities & Bills',
-      'Payment Method': 'Debit Card',
-      Notes: 'SP Services'
-    },
-    {
-      Date: '2026-07-19',
-      Description: 'Starbucks Coffee & Bagel',
-      Amount: 9.50,
-      Type: 'expense',
-      Category: 'Food & Dining',
-      'Payment Method': 'Digital Wallet',
-      Notes: 'Morning breakfast'
-    }
-  ];
-
-  const ws = XLSX.utils.json_to_sheet(sampleData);
+  const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
 
   // Column formatting
   ws['!cols'] = [
@@ -746,7 +641,7 @@ export const downloadSampleExcel = () => {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-  XLSX.writeFile(wb, 'sample_expenses_template.xlsx');
+  XLSX.writeFile(wb, 'expenses_template.xlsx');
 };
 
 /**

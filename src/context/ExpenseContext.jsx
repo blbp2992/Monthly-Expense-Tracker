@@ -1,13 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import {
-  DEFAULT_CATEGORIES,
-  DEFAULT_BUDGETS,
-  INITIAL_TRANSACTIONS,
-  INITIAL_SUBSCRIPTIONS,
-  DEFAULT_CURRENCIES
-} from '../data/initialData';
+import { DEFAULT_CATEGORIES, DEFAULT_CURRENCIES } from '../data/initialData';
 import { loadFromStorage, saveToStorage } from '../utils/storage';
+import { removeLegacyDemoData } from '../utils/demoCleanup';
 import { getDaysInMonth, getRemainingDaysInMonth } from '../utils/formatters';
+
+removeLegacyDemoData();
 
 const ExpenseContext = createContext();
 
@@ -17,15 +14,9 @@ export const ExpenseProvider = ({ children }) => {
   const initialMonth = String(now.getMonth() + 1).padStart(2, '0');
 
   // Core Persisted States
-  const [transactions, setTransactions] = useState(() => {
-    const saved = loadFromStorage('transactions', null);
-    if (!saved || saved.length <= 12) {
-      return INITIAL_TRANSACTIONS;
-    }
-    const existingIds = new Set(saved.map((t) => t.id));
-    const toAdd = INITIAL_TRANSACTIONS.filter((t) => !existingIds.has(t.id));
-    return [...saved, ...toAdd];
-  });
+  const [transactions, setTransactions] = useState(() =>
+    loadFromStorage('transactions', [])
+  );
 
   const [categories, setCategories] = useState(() => {
     const saved = loadFromStorage('categories', null);
@@ -35,13 +26,12 @@ export const ExpenseProvider = ({ children }) => {
     return [...saved, ...toAdd];
   });
 
-  const [budgets, setBudgets] = useState(() => {
-    const saved = loadFromStorage('budgets', null);
-    return saved ? { ...DEFAULT_BUDGETS, ...saved } : DEFAULT_BUDGETS;
-  });
+  const [budgets, setBudgets] = useState(() =>
+    loadFromStorage('budgets', {})
+  );
 
   const [subscriptions, setSubscriptions] = useState(() =>
-    loadFromStorage('subscriptions', INITIAL_SUBSCRIPTIONS)
+    loadFromStorage('subscriptions', [])
   );
 
   const [currency, setCurrency] = useState(() =>
@@ -382,14 +372,6 @@ export const ExpenseProvider = ({ children }) => {
   };
 
   // System Resets & Imports
-  const resetToDemoData = () => {
-    setTransactions(INITIAL_TRANSACTIONS);
-    setCategories(DEFAULT_CATEGORIES);
-    setBudgets(DEFAULT_BUDGETS);
-    setSubscriptions(INITIAL_SUBSCRIPTIONS);
-    addToast('Restored demo sample dataset');
-  };
-
   const clearAllData = () => {
     setTransactions([]);
     setBudgets({});
@@ -490,7 +472,6 @@ export const ExpenseProvider = ({ children }) => {
         deleteCategory,
         updateCategoryName,
 
-        resetToDemoData,
         clearAllData,
         importBackupData,
         addToast,

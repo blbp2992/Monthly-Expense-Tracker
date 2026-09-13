@@ -9,7 +9,6 @@ import {
   Palette,
   Download,
   Upload,
-  RotateCcw,
   Trash2,
   Plus,
   ShieldCheck,
@@ -62,7 +61,6 @@ export const SettingsView = () => {
     setIsFileImportOpen,
     addCategory,
     deleteCategory,
-    resetToDemoData,
     clearAllData,
     importBackupData,
     addToast
@@ -205,8 +203,7 @@ export const SettingsView = () => {
         </div>
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-          Expanses Tracker works out-of-the-box with sample/smart recognition. For live multimodal
-          parsing of any real photo receipt, provide a free Google Gemini API key from{' '}
+          Receipt scanning uses Google Gemini to read your receipt photos. Get a free API key from{' '}
           <a
             href="https://aistudio.google.com/app/apikey"
             target="_blank"
@@ -418,7 +415,7 @@ export const SettingsView = () => {
           }}
         >
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Need blank template files with sample columns?
+            Need a blank template with the expected columns?
           </div>
           <button
             className="btn btn-secondary"
@@ -450,7 +447,7 @@ export const SettingsView = () => {
 
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
           All your financial data is safely stored offline in your browser local storage. You can
-          export complete JSON backups (including categories, budgets, and subscriptions), restore them anytime, or reset to demo data.
+          export complete JSON backups (including categories, budgets, and subscriptions), and restore them anytime.
         </p>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem' }}>
@@ -469,11 +466,6 @@ export const SettingsView = () => {
               onChange={handleFileUpload}
             />
           </label>
-
-          <button className="btn btn-secondary" onClick={resetToDemoData}>
-            <RotateCcw size={16} />
-            <span>Restore Sample Demo Data</span>
-          </button>
 
           <button
             className="btn btn-danger"

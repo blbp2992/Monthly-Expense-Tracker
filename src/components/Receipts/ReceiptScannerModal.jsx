@@ -1,11 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
-import {
-  resizeImageToBase64,
-  parseReceiptWithGemini,
-  parseReceiptSmartFallback,
-  DEMO_RECEIPTS
-} from '../../utils/aiScanner';
+import { resizeImageToBase64, parseReceiptWithGemini } from '../../utils/aiScanner';
 import { formatCurrency } from '../../utils/formatters';
 import { PAYMENT_METHODS } from '../../data/initialData';
 import {
@@ -57,17 +52,16 @@ export const ReceiptScannerModal = () => {
       const base64 = await resizeImageToBase64(file);
       setImagePreview(base64);
 
-      let parsed;
-      if (geminiApiKey && geminiApiKey.trim()) {
-        try {
-          parsed = await parseReceiptWithGemini(base64, geminiApiKey.trim(), categories);
-        } catch (apiErr) {
-          console.warn('Gemini API call failed, falling back to smart parser:', apiErr);
-          addToast(`AI scan failed (${apiErr.message}) — showing placeholder demo data instead`, 'error');
-          parsed = await parseReceiptSmartFallback(base64, file.name, categories);
-        }
-      } else {
-        parsed = await parseReceiptSmartFallback(base64, file.name, categories);
+      if (!geminiApiKey || !geminiApiKey.trim()) {
+        setErrorMsg('Add your Google Gemini API key in Settings to scan receipts.');
+        setIsScanning(false);
+        return;
+      }
+
+      const parsed = await parseReceiptWithGemini(base64, geminiApiKey.trim(), categories);
+      if (!parsed || !Array.isArray(parsed.items)) {
+        console.error('Unexpected Gemini response:', parsed);
+        throw new Error('AI returned an unexpected response format');
       }
 
       setScanResult(parsed);
@@ -75,29 +69,9 @@ export const ReceiptScannerModal = () => {
       addToast('Receipt analyzed successfully!');
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to analyze receipt. Please try another image.');
+      setErrorMsg(`Failed to analyze receipt${err?.message ? `: ${err.message}` : ''}. Please try again.`);
       setIsScanning(false);
     }
-  };
-
-  const handleLoadDemo = async (demoKey) => {
-    setIsScanning(true);
-    setErrorMsg(null);
-    setImagePreview('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" fill="%231e293b"><rect width="300" height="400" rx="10"/><text x="50%" y="45%" fill="%2394a3b8" font-family="sans-serif" font-size="16" text-anchor="middle">Sample Receipt</text><text x="50%" y="55%" fill="%236366f1" font-family="sans-serif" font-size="14" text-anchor="middle">AI Scanned Document</text></svg>');
-
-    const sample = DEMO_RECEIPTS.find((d) => d.id === demoKey) || DEMO_RECEIPTS[0];
-    await new Promise((r) => setTimeout(r, 1000));
-
-    setScanResult({
-      merchant: sample.merchant,
-      date: sample.date,
-      paymentMethod: sample.paymentMethod,
-      tax: sample.tax,
-      total: sample.total,
-      items: sample.items.map((i) => ({ ...i }))
-    });
-    setIsScanning(false);
-    addToast(`Loaded ${sample.title}`);
   };
 
   // Editable item handlers
@@ -299,25 +273,23 @@ export const ReceiptScannerModal = () => {
               </p>
             </div>
 
-            {/* Quick Demo Receipts */}
-            <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
-                Or test instantly with sample receipts:
+            {errorMsg && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.6rem',
+                  padding: '0.75rem 0.9rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--expense-red-glow)',
+                  color: 'var(--expense-red)',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{errorMsg}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                {DEMO_RECEIPTS.map((demo) => (
-                  <button
-                    key={demo.id}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.82rem', justifyContent: 'flex-start', padding: '0.65rem 0.85rem' }}
-                    onClick={() => handleLoadDemo(demo.id)}
-                  >
-                    <FileText size={15} color="var(--primary)" />
-                    <span>{demo.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         )}
 

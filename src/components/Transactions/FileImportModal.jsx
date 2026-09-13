@@ -387,7 +387,7 @@ export const FileImportModal = () => {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Need a starting layout?</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Download our ready-made template with sample expenses prefilled.
+                    Download a blank template with the expected columns.
                   </div>
                 </div>
               </div>
