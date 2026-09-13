@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { DEFAULT_CATEGORIES, DEFAULT_CURRENCIES } from '../data/initialData';
 import { loadFromStorage, saveToStorage } from '../utils/storage';
 import { removeLegacyDemoData } from '../utils/demoCleanup';
+import { useCloudSync } from '../sync/useCloudSync';
 import { getDaysInMonth, getRemainingDaysInMonth } from '../utils/formatters';
 import {
   getCategoryAllocations,
@@ -102,6 +103,19 @@ export const ExpenseProvider = ({ children }) => {
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // Cloud sync across devices (active only when signed in)
+  const cloud = useCloudSync(
+    {
+      transactions: { value: transactions, setValue: setTransactions },
+      subscriptions: { value: subscriptions, setValue: setSubscriptions },
+      categories: { value: categories, setValue: setCategories },
+      budgets: { value: budgets, setValue: setBudgets },
+      itemCategoryMemory: { value: itemCategoryMemory, setValue: setItemCategoryMemory },
+      preferences: { value: currency, setValue: setCurrency }
+    },
+    addToast
+  );
 
   // Sync to Storage
   useEffect(() => {
@@ -552,6 +566,7 @@ export const ExpenseProvider = ({ children }) => {
         clearAllData,
         importBackupData,
         itemCategoryMemory,
+        ...cloud,
         rememberItemCategories,
         applyItemCategoryMemory,
         updateReceiptItemCategory,

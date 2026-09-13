@@ -9,8 +9,12 @@ import {
   Sun,
   Calendar,
   Sparkles,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from 'lucide-react';
+import { SYNC_STATUS_LABELS } from './Settings/CloudSyncPanel';
 import { getMonthName } from '../utils/formatters';
 
 export const Header = () => {
@@ -26,7 +30,11 @@ export const Header = () => {
     setIsTxModalOpen,
     setEditingTx,
     setIsReceiptScannerOpen,
-    setIsFileImportOpen
+    setIsFileImportOpen,
+    cloudConfigured,
+    cloudUser,
+    cloudStatus,
+    setActiveTab
   } = useExpense();
 
   const handleOpenAddModal = () => {
@@ -85,6 +93,23 @@ export const Header = () => {
 
       {/* Header Actions */}
       <div className="header-actions">
+        {cloudConfigured && (
+          <button
+            className="btn-icon"
+            onClick={() => setActiveTab('settings')}
+            title={cloudUser ? `Cloud sync: ${SYNC_STATUS_LABELS[cloudStatus]?.label}` : 'Cloud sync: signed out'}
+            style={{ color: SYNC_STATUS_LABELS[cloudStatus]?.color }}
+          >
+            {!cloudUser || cloudStatus === 'offline' || cloudStatus === 'error' ? (
+              <CloudOff size={19} />
+            ) : cloudStatus === 'syncing' ? (
+              <RefreshCw size={19} />
+            ) : (
+              <Cloud size={19} />
+            )}
+          </button>
+        )}
+
         <button
           className="btn-icon"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

@@ -3,6 +3,7 @@ import { useExpense } from '../../context/ExpenseContext';
 import { DEFAULT_CURRENCIES } from '../../data/initialData';
 import { exportDataAsJSON } from '../../utils/storage';
 import { CategoryIcon } from '../UI/CategoryIcon';
+import { CloudSyncPanel } from './CloudSyncPanel';
 import {
   Settings,
   DollarSign,
@@ -64,6 +65,7 @@ export const SettingsView = () => {
     clearAllData,
     importBackupData,
     itemCategoryMemory,
+    cloudUser,
     addToast
   } = useExpense();
 
@@ -194,6 +196,8 @@ export const SettingsView = () => {
           </div>
         </div>
       </div>
+
+      <CloudSyncPanel />
 
       {/* AI Vision API Key Integration */}
       <div className="glass-panel">
@@ -474,7 +478,9 @@ export const SettingsView = () => {
             onClick={() => {
               if (
                 window.confirm(
-                  'Are you sure you want to clear all transactions, budgets, and subscriptions?'
+                  cloudUser
+                    ? 'Clear all transactions, budgets, and subscriptions? You are signed in to cloud sync, so this also deletes them from your other devices.'
+                    : 'Are you sure you want to clear all transactions, budgets, and subscriptions?'
                 )
               ) {
                 clearAllData();

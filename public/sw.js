@@ -1,7 +1,7 @@
 // Expanses Tracker - Service Worker
 // Cache-first for static assets, network-first for navigation
 
-const CACHE_NAME = 'expanses-tracker-v1';
+const CACHE_NAME = 'expanses-tracker-v2';
 const STATIC_ASSETS = [
   '/Monthly-Expense-Tracker/',
   '/Monthly-Expense-Tracker/manifest.json',
@@ -38,6 +38,10 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') return;
+
+  // Let Firebase and Gemini API traffic (auth, Firestore streams) bypass the cache
+  const { hostname } = new URL(request.url);
+  if (hostname.endsWith('googleapis.com') && hostname !== 'fonts.googleapis.com') return;
 
   // Navigation requests: network-first
   if (request.mode === 'navigate') {
