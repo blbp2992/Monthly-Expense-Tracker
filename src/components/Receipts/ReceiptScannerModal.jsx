@@ -27,8 +27,6 @@ import {
 
 // Gemini accepts inline files up to ~20MB per request
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
-// Larger PDFs are scanned but not kept, to avoid filling browser storage
-const MAX_STORED_PDF_CHARS = 750 * 1024;
 
 const stripScanFields = ({ suggestedCategoryId, learnedCategory, ...item }) => item;
 
@@ -114,9 +112,9 @@ export const ReceiptScannerModal = () => {
       let scanData;
       if (isPdf) {
         scanData = await readFileAsDataURL(file);
-        setPdfFile({ name: file.name, dataUrl: scanData });
+        setPdfFile({ name: file.name });
       } else {
-        // Small copy for preview/storage, larger copy so the AI can read small print
+        // Small copy for the on-screen preview, larger copy so the AI can read small print
         setImagePreview(await resizeImageToBase64(file));
         scanData = await resizeImageToBase64(file, 3072, 0.9);
       }
@@ -184,18 +182,6 @@ export const ReceiptScannerModal = () => {
     const corrections = scanResult.items.filter((it) => it.categoryId !== it.suggestedCategoryId);
     rememberItemCategories(corrections);
     return scanResult.items.map(stripScanFields);
-  };
-
-  // Receipt file fields to store on a transaction (PDFs only if small enough)
-  const getAttachment = () => {
-    if (imagePreview) return { receiptImage: imagePreview };
-    if (pdfFile && pdfFile.dataUrl.length <= MAX_STORED_PDF_CHARS) {
-      return { receiptPdf: pdfFile.dataUrl, receiptFileName: pdfFile.name };
-    }
-    if (pdfFile) {
-      addToast('PDF is too large to keep in browser storage — the scanned items were saved without it.', 'info');
-    }
-    return {};
   };
 
   // Editable item handlers
@@ -267,7 +253,6 @@ export const ReceiptScannerModal = () => {
       paymentMethod: scanResult.paymentMethod || 'credit_card',
       description: scanResult.merchant || 'Receipt Expense',
       notes: `Receipt with ${items.length} items: ${itemsSummary.slice(0, 100)}...`,
-      ...getAttachment(),
       receiptItems: items,
       tax: scanResult.tax
     });
@@ -280,17 +265,14 @@ export const ReceiptScannerModal = () => {
   const handleSaveAsSplit = () => {
     if (!scanResult || !scanResult.items.length) return;
 
-    // Attach the receipt file to the first item only; a copy per item quickly fills browser storage
-    const attachment = getAttachment();
-    const txList = finalizeItems().map((it, idx) => ({
+    const txList = finalizeItems().map((it) => ({
       type: 'expense',
       amount: it.price * (it.qty || 1),
       categoryId: it.categoryId,
       date: scanResult.date,
       paymentMethod: scanResult.paymentMethod || 'credit_card',
       description: `${scanResult.merchant}: ${it.name}`,
-      notes: `Itemized from receipt (Qty: ${it.qty || 1})`,
-      ...(idx === 0 ? attachment : {})
+      notes: `Itemized from receipt (Qty: ${it.qty || 1})`
     }));
 
     // If there is a tax item, log it if > 0

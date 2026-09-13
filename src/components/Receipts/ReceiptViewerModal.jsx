@@ -3,17 +3,7 @@ import { useExpense } from '../../context/ExpenseContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { getCategoryAllocations } from '../../utils/receiptCategories';
 import { CategoryIcon } from '../UI/CategoryIcon';
-import { X, Receipt, ShoppingCart, Download, FileText } from 'lucide-react';
-
-// Opens a stored data: URL PDF in a new tab (browsers block navigating to data: URLs directly)
-const openPdf = (dataUrl) => {
-  const [meta, base64] = dataUrl.split(',');
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: meta.match(/data:([^;]+)/)?.[1] || 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-};
+import { X, ShoppingCart } from 'lucide-react';
 
 export const ReceiptViewerModal = () => {
   const {
@@ -110,30 +100,6 @@ export const ReceiptViewerModal = () => {
                 {formatCurrency(tx.amount, currency.code, currency.symbol)}
               </div>
             </div>
-
-            {tx.receiptImage && (
-              <a
-                href={tx.receiptImage}
-                download={`receipt_${tx.id}.jpg`}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
-              >
-                <Download size={14} />
-                <span>Save Image</span>
-              </a>
-            )}
-
-            {tx.receiptPdf && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
-                onClick={() => openPdf(tx.receiptPdf)}
-              >
-                <FileText size={14} />
-                <span>Open PDF</span>
-              </button>
-            )}
           </div>
 
           {/* Spending split by category */}
@@ -222,39 +188,6 @@ export const ReceiptViewerModal = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-
-          {/* Attached Receipt Image */}
-          {tx.receiptImage && (
-            <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                Receipt Photo
-              </div>
-              <div
-                style={{
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  background: '#000',
-                  textAlign: 'center',
-                  padding: '0.5rem'
-                }}
-              >
-                <img
-                  src={tx.receiptImage}
-                  alt="Receipt"
-                  style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain' }}
-                />
-              </div>
-            </div>
-          )}
-
-          {tx.receiptPdf && (
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Receipt size={14} />
-              <span>Attached PDF: {tx.receiptFileName || 'receipt.pdf'}</span>
             </div>
           )}
 

@@ -82,7 +82,6 @@ export const TransactionModal = () => {
       paymentMethod,
       description: description.trim(),
       notes: notes.trim(),
-      receiptImage: editingTx?.receiptImage,
       receiptItems: editingTx?.receiptItems
     };
 

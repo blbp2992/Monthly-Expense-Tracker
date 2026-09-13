@@ -11,6 +11,15 @@ import {
 
 removeLegacyDemoData();
 
+// Receipt photos/PDFs are no longer kept (they filled browser storage); only the
+// scanned data is. Strips files saved by earlier versions or old backups.
+const stripReceiptFiles = (transactions) =>
+  transactions.map((tx) => {
+    if (!tx.receiptImage && !tx.receiptPdf && !tx.receiptFileName) return tx;
+    const { receiptImage, receiptPdf, receiptFileName, ...rest } = tx;
+    return rest;
+  });
+
 const ExpenseContext = createContext();
 
 export const ExpenseProvider = ({ children }) => {
@@ -20,7 +29,7 @@ export const ExpenseProvider = ({ children }) => {
 
   // Core Persisted States
   const [transactions, setTransactions] = useState(() =>
-    loadFromStorage('transactions', [])
+    stripReceiptFiles(loadFromStorage('transactions', []))
   );
 
   const [categories, setCategories] = useState(() => {
@@ -448,7 +457,7 @@ export const ExpenseProvider = ({ children }) => {
 
   const importBackupData = (imported) => {
     try {
-      if (imported.transactions) setTransactions(imported.transactions);
+      if (imported.transactions) setTransactions(stripReceiptFiles(imported.transactions));
       if (imported.categories) setCategories(imported.categories);
       if (imported.budgets) setBudgets(imported.budgets);
       if (imported.subscriptions) setSubscriptions(imported.subscriptions);

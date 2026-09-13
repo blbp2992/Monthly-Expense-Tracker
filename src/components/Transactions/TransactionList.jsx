@@ -203,9 +203,7 @@ export const TransactionList = () => {
               {filteredTransactions.map((tx) => {
                 const cat = getCategory(tx.categoryId);
                 const isIncome = tx.type === 'income';
-                const hasReceipt = Boolean(
-                  tx.receiptImage || tx.receiptPdf || (tx.receiptItems && tx.receiptItems.length > 0)
-                );
+                const hasReceipt = Boolean(tx.receiptItems && tx.receiptItems.length > 0);
                 const categoryCount = getCategoryAllocations(tx).length;
 
                 return (
