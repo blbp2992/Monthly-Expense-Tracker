@@ -30,7 +30,7 @@ export const exportDataAsJSON = (stateData) => {
   downloadAnchor.setAttribute('href', jsonString);
   downloadAnchor.setAttribute(
     'download',
-    `expanses_tracker_backup_${new Date().toISOString().slice(0, 10)}.json`
+    `expenses_tracker_backup_${new Date().toISOString().slice(0, 10)}.json`
   );
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
@@ -56,7 +56,7 @@ export const exportTransactionsAsCSV = (transactions, categories, filename) => {
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', filename || `expanses_tracker_transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', filename || `expenses_tracker_transactions_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   link.remove();

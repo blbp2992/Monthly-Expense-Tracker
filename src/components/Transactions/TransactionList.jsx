@@ -69,7 +69,7 @@ export const TransactionList = () => {
       addToast('No transactions to export for this view', 'info');
       return;
     }
-    const filename = `expanses_${selectedYear}_${selectedMonth}_transactions.csv`;
+    const filename = `expenses_${selectedYear}_${selectedMonth}_transactions.csv`;
     exportTransactionsAsCSV(txToExport, categories, filename);
     addToast(`Exported ${txToExport.length} transactions to CSV`);
   };
@@ -80,7 +80,7 @@ export const TransactionList = () => {
       addToast('No transactions to export for this view', 'info');
       return;
     }
-    const filename = `expanses_${selectedYear}_${selectedMonth}_transactions.xlsx`;
+    const filename = `expenses_${selectedYear}_${selectedMonth}_transactions.xlsx`;
     exportTransactionsAsExcel(txToExport, categories, filename);
     addToast(`Exported ${txToExport.length} transactions to Excel (.xlsx)`);
   };

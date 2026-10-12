@@ -55,7 +55,7 @@ export const Header = () => {
           <Wallet size={24} />
         </div>
         <div>
-          <div className="app-title">Expanses Tracker</div>
+          <div className="app-title">Expenses Tracker</div>
           <div className="app-subtitle">Personal Monthly Expense Tracker</div>
         </div>
       </div>

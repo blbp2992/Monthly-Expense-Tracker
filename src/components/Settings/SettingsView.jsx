@@ -142,7 +142,7 @@ export const SettingsView = () => {
         if (parsed.transactions || parsed.categories) {
           importBackupData(parsed);
         } else {
-          addToast('Invalid Expanses Tracker backup file', 'error');
+          addToast('Invalid Expenses Tracker backup file', 'error');
         }
       } catch (err) {
         addToast('Error reading backup file', 'error');

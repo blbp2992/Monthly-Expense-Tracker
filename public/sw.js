@@ -1,7 +1,7 @@
-// Expanses Tracker - Service Worker
+// Expenses Tracker - Service Worker
 // Cache-first for static assets, network-first for navigation
 
-const CACHE_NAME = 'expanses-tracker-v2';
+const CACHE_NAME = 'expenses-tracker-v3';
 const STATIC_ASSETS = [
   '/Monthly-Expense-Tracker/',
   '/Monthly-Expense-Tracker/manifest.json',

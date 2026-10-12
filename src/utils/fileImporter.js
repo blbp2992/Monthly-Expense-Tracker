@@ -677,6 +677,6 @@ export const exportTransactionsAsExcel = (transactions = [], categories = [], fi
   XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
 
   const finalName =
-    filename || `expanses_tracker_transactions_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    filename || `expenses_tracker_transactions_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, finalName);
 };

@@ -1,6 +1,6 @@
 {
-  "name": "Expanses Tracker",
-  "short_name": "Expanses",
+  "name": "Expenses Tracker",
+  "short_name": "Expenses",
   "description": "Personal Monthly Expense Tracker — Manage cash flow, set budgets, track spending analytics.",
   "start_url": "/Monthly-Expense-Tracker/",
   "scope": "/Monthly-Expense-Tracker/",
