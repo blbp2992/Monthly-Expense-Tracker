@@ -7,6 +7,7 @@ import { BudgetProgress } from './components/Dashboard/BudgetProgress';
 import { ChartsSection } from './components/Dashboard/ChartsSection';
 import { TransactionList } from './components/Transactions/TransactionList';
 import { TransactionModal } from './components/Transactions/TransactionModal';
+import { CategoryExplorer } from './components/Categories/CategoryExplorer';
 import { BudgetManager } from './components/Budgets/BudgetManager';
 import { RecurringTracker } from './components/Subscriptions/RecurringTracker';
 import { DeepAnalytics } from './components/Analytics/DeepAnalytics';
@@ -38,6 +39,8 @@ const MainApp = () => {
         )}
 
         {activeTab === 'transactions' && <TransactionList />}
+
+        {activeTab === 'categories' && <CategoryExplorer />}
 
         {activeTab === 'budgets' && <BudgetManager />}
 

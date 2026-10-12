@@ -1050,6 +1050,11 @@ button, input, select, textarea {
   .form-row {
     grid-template-columns: 1fr;
   }
+
+  .item-table th,
+  .item-table td {
+    padding: 0.7rem 0.45rem;
+  }
 }
 
 /* ==========================================================================

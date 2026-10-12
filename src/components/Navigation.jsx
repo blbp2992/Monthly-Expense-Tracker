@@ -3,6 +3,7 @@ import { useExpense } from '../context/ExpenseContext';
 import {
   LayoutDashboard,
   Receipt,
+  Tags,
   Target,
   Repeat,
   TrendingUp,
@@ -15,6 +16,7 @@ export const Navigation = () => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'transactions', label: 'Transactions', icon: Receipt },
+    { id: 'categories', label: 'Categories', icon: Tags },
     { id: 'budgets', label: 'Monthly Budgets', icon: Target },
     { id: 'subscriptions', label: 'Recurring & Bills', icon: Repeat },
     { id: 'analytics', label: 'Deep Analytics', icon: TrendingUp },

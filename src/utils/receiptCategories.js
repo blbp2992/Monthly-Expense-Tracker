@@ -38,6 +38,25 @@ export const getCategoryAllocations = (tx) => {
   }));
 };
 
+// One entry per purchased item: each receipt line at its printed price, or the
+// transaction itself when it has no receipt items
+export const getLineItems = (tx) => {
+  const items = Array.isArray(tx.receiptItems)
+    ? tx.receiptItems.filter((item) => lineTotal(item) > 0)
+    : [];
+  if (items.length === 0) {
+    const amount = Number(tx.amount) || 0;
+    return [{ name: tx.description, qty: 1, price: amount, total: amount, categoryId: tx.categoryId }];
+  }
+  return items.map((item) => ({
+    name: String(item.name || 'Item'),
+    qty: Number(item.qty) || 1,
+    price: Number(item.price) || 0,
+    total: lineTotal(item),
+    categoryId: item.categoryId || tx.categoryId
+  }));
+};
+
 // Category with the largest share of the items, used as the transaction's headline category
 export const getPrimaryCategoryId = (items, fallback) => {
   const totals = {};
