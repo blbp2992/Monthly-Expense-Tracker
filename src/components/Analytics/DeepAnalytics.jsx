@@ -36,7 +36,7 @@ export const DeepAnalytics = () => {
   } = useExpense();
 
   const isDark = theme === 'dark';
-  const { totalExpenses, totalIncome } = monthlyMetrics;
+  const { totalExpenses } = monthlyMetrics;
 
   // 1. Month-over-Month 6 Months Historical Bar Chart
   const last6Months = [];
@@ -51,19 +51,15 @@ export const DeepAnalytics = () => {
     });
   }
 
-  const momIncomeData = [];
   const momExpenseData = [];
 
   last6Months.forEach((monthItem) => {
-    let inc = 0;
     let exp = 0;
     transactions.forEach((tx) => {
-      if (tx.date && tx.date.startsWith(monthItem.key)) {
-        if (tx.type === 'income') inc += Number(tx.amount) || 0;
-        if (tx.type === 'expense') exp += Number(tx.amount) || 0;
+      if (tx.date && tx.date.startsWith(monthItem.key) && tx.type === 'expense') {
+        exp += Number(tx.amount) || 0;
       }
     });
-    momIncomeData.push(inc);
     momExpenseData.push(exp);
   });
 
@@ -71,13 +67,7 @@ export const DeepAnalytics = () => {
     labels: last6Months.map((m) => m.label),
     datasets: [
       {
-        label: 'Income',
-        data: momIncomeData,
-        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-        borderRadius: 4
-      },
-      {
-        label: 'Expense',
+        label: 'Spending',
         data: momExpenseData,
         backgroundColor: 'rgba(244, 63, 94, 0.8)',
         borderRadius: 4
@@ -89,13 +79,7 @@ export const DeepAnalytics = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top',
-        labels: {
-          color: isDark ? '#94a3b8' : '#64748b',
-          font: { family: "'Inter', sans-serif", size: 11 }
-        }
-      },
+      legend: { display: false },
       tooltip: {
         backgroundColor: isDark ? '#1e293b' : '#ffffff',
         titleColor: isDark ? '#f8fafc' : '#0f172a',
@@ -171,7 +155,7 @@ export const DeepAnalytics = () => {
         <div className="panel-header">
           <div className="panel-title">
             <TrendingUp size={22} color="var(--primary)" />
-            <span>6-Month Cash Flow Trend (Income vs Expenses)</span>
+            <span>6-Month Spending Trend</span>
           </div>
         </div>
         <div className="chart-container" style={{ height: '320px' }}>

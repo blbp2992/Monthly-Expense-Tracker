@@ -11,7 +11,6 @@ export const TransactionFilter = () => {
     setSearchQuery,
     filterCategory,
     setFilterCategory,
-    filterType,
     setFilterType,
     filterPaymentMethod,
     setFilterPaymentMethod,
@@ -31,7 +30,6 @@ export const TransactionFilter = () => {
   const hasActiveFilters =
     searchQuery !== '' ||
     filterCategory !== 'all' ||
-    filterType !== 'all' ||
     filterPaymentMethod !== 'all' ||
     sortBy !== 'date-desc';
 
@@ -49,17 +47,6 @@ export const TransactionFilter = () => {
         />
       </div>
 
-      {/* Type Filter */}
-      <select
-        className="select-field"
-        value={filterType}
-        onChange={(e) => setFilterType(e.target.value)}
-      >
-        <option value="all">All Types</option>
-        <option value="expense">Expenses Only</option>
-        <option value="income">Income Only</option>
-      </select>
-
       {/* Category Filter */}
       <select
         className="select-field"
@@ -69,7 +56,7 @@ export const TransactionFilter = () => {
         <option value="all">All Categories</option>
         {categories.map((cat) => (
           <option key={cat.id} value={cat.id}>
-            {cat.name} ({cat.type})
+            {cat.name}
           </option>
         ))}
       </select>

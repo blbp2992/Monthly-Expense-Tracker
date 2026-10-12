@@ -225,9 +225,12 @@ export const FileImportModal = () => {
     setPreviewRows((prev) => prev.filter((r) => r.tempId !== tempId));
   };
 
+  // Only spending is tracked; money-in rows (refunds, salary credits) are skipped
+  const isImportable = (r) => r.selected && r.isValid && r.type === 'expense';
+
   // Execute Final Import
   const handleConfirmImport = () => {
-    const selectedTransactions = previewRows.filter((r) => r.selected && r.isValid);
+    const selectedTransactions = previewRows.filter(isImportable);
     if (selectedTransactions.length === 0) {
       setErrorMessage('No valid transactions selected for import.');
       return;
@@ -238,17 +241,15 @@ export const FileImportModal = () => {
   };
 
   // Derived Preview Metrics
-  const selectedCount = previewRows.filter((r) => r.selected && r.isValid).length;
+  const selectedCount = previewRows.filter(isImportable).length;
   const invalidCount = previewRows.filter((r) => !r.isValid).length;
   const duplicateCount = previewRows.filter((r) => r.isDuplicate).length;
 
   const totalExpenseSum = previewRows
-    .filter((r) => r.selected && r.isValid && r.type === 'expense')
+    .filter(isImportable)
     .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-  const totalIncomeSum = previewRows
-    .filter((r) => r.selected && r.isValid && r.type === 'income')
-    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  const moneyInCount = previewRows.filter((r) => r.isValid && r.type === 'income').length;
 
   // Unique months detected in preview
   const detectedMonths = Array.from(
@@ -424,7 +425,7 @@ export const FileImportModal = () => {
                 <span className="info-tag">Description / Payee</span>
                 <span className="info-tag">Amount (or Debit / Credit)</span>
                 <span className="info-tag">Category</span>
-                <span className="info-tag">Type (Expense/Income)</span>
+                <span className="info-tag">Type</span>
                 <span className="info-tag">Payment Method</span>
                 <span className="info-tag">Notes</span>
               </div>
@@ -566,7 +567,7 @@ export const FileImportModal = () => {
                         value={signInterpretation}
                         onChange={(e) => setSignInterpretation(e.target.value)}
                       >
-                        <option value="negative_is_expense">Bank Statement (Negative = Expense, Positive = Income)</option>
+                        <option value="negative_is_expense">Bank Statement (Negative = Expense, Positive = Money In, skipped)</option>
                         <option value="positive_is_expense">Expense Tracker (All Positive = Expense)</option>
                       </select>
                     </div>
@@ -594,7 +595,7 @@ export const FileImportModal = () => {
 
                     <div className="mapping-item">
                       <label className="form-label">
-                        Credit Column (Money In / Income)
+                        Credit Column (Money In, skipped)
                       </label>
                       <select
                         className="select-field"
@@ -649,7 +650,7 @@ export const FileImportModal = () => {
                 {/* Type Column */}
                 {mapping.amountMode === 'single' && (
                   <div className="mapping-item">
-                    <label className="form-label">Type Column (Optional - Expense/Income)</label>
+                    <label className="form-label">Type Column (Optional)</label>
                     <select
                       className="select-field"
                       value={mapping.type}
@@ -766,11 +767,11 @@ export const FileImportModal = () => {
                 </div>
               </div>
 
-              {totalIncomeSum > 0 && (
+              {moneyInCount > 0 && (
                 <div className="preview-stat-card">
-                  <div className="stat-label">Total Income</div>
-                  <div className="stat-value" style={{ color: 'var(--income-green)' }}>
-                    {formatCurrency(totalIncomeSum, currency.code, currency.symbol)}
+                  <div className="stat-label">Money In (Skipped)</div>
+                  <div className="stat-value" style={{ color: 'var(--text-muted)' }}>
+                    {moneyInCount}
                   </div>
                 </div>
               )}
@@ -943,7 +944,7 @@ export const FileImportModal = () => {
                           >
                             {categories.map((c) => (
                               <option key={c.id} value={c.id}>
-                                {c.name} ({c.type})
+                                {c.name}
                               </option>
                             ))}
                           </select>
@@ -955,7 +956,7 @@ export const FileImportModal = () => {
                             className="inline-table-input"
                             value={row.type}
                             style={{
-                              color: row.type === 'income' ? 'var(--income-green)' : 'var(--expense-red)',
+                              color: row.type === 'income' ? 'var(--text-muted)' : 'var(--expense-red)',
                               fontWeight: 600
                             }}
                             onChange={(e) =>
@@ -963,7 +964,7 @@ export const FileImportModal = () => {
                             }
                           >
                             <option value="expense">Expense</option>
-                            <option value="income">Income</option>
+                            <option value="income">Money in (skip)</option>
                           </select>
                         </td>
 

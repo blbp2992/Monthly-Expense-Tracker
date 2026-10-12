@@ -74,7 +74,6 @@ export const SettingsView = () => {
 
   // New Category State
   const [newCatName, setNewCatName] = useState('');
-  const [newCatType, setNewCatType] = useState('expense');
   const [newCatColor, setNewCatColor] = useState('#6366f1');
   const [newCatIcon, setNewCatIcon] = useState('Tag');
 
@@ -93,7 +92,7 @@ export const SettingsView = () => {
 
     addCategory({
       name: newCatName.trim(),
-      type: newCatType,
+      type: 'expense',
       color: newCatColor,
       icon: newCatIcon
     });
@@ -294,18 +293,6 @@ export const SettingsView = () => {
             />
           </div>
 
-          <div className="form-group" style={{ flex: '1 1 120px' }}>
-            <label className="form-label">Type</label>
-            <select
-              className="select-field"
-              value={newCatType}
-              onChange={(e) => setNewCatType(e.target.value)}
-            >
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
-          </div>
-
           <div className="form-group" style={{ flex: '0 0 70px' }}>
             <label className="form-label">Color</label>
             <input
@@ -374,8 +361,6 @@ export const SettingsView = () => {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cat.name}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      <span style={{ textTransform: 'capitalize' }}>{cat.type}</span>
-                      {' · '}
                       {uses > 0 ? `Used ${uses} ${uses === 1 ? 'time' : 'times'}` : 'Unused'}
                     </div>
                   </div>

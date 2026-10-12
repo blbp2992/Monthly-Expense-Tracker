@@ -111,6 +111,7 @@ export const mergeLocalIntoCloud = async (uid, name, spec, localValue) => {
   const ops = spec
     .toEntries(localValue)
     .filter(([id]) => id && !remoteIds.has(id))
+    .filter((entry) => remoteIds.size === 0 || !spec.skipOnMerge?.(entry))
     .map(([id, data]) => (batch) => batch.set(doc(colRef, id), clean(data)));
   await commitInBatches(db, ops);
   return ops.length;

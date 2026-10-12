@@ -55,14 +55,6 @@ export const TransactionModal = () => {
     }
   }, [editingTx, isTxModalOpen, categories, selectedYear, selectedMonth]);
 
-  const handleTypeChange = (newType) => {
-    setType(newType);
-    const available = categories.find((c) => c.type === newType);
-    if (available) {
-      setCategoryId(available.id);
-    }
-  };
-
   if (!isTxModalOpen) return null;
 
   const filteredCategories = categories.filter((c) => c.type === type);
@@ -185,24 +177,6 @@ export const TransactionModal = () => {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          {/* Type Toggle: Expense / Income */}
-          <div className="type-toggle-group">
-            <button
-              type="button"
-              className={`type-toggle-btn ${type === 'expense' ? 'active-expense' : ''}`}
-              onClick={() => handleTypeChange('expense')}
-            >
-              Expense
-            </button>
-            <button
-              type="button"
-              className={`type-toggle-btn ${type === 'income' ? 'active-income' : ''}`}
-              onClick={() => handleTypeChange('income')}
-            >
-              Income
-            </button>
-          </div>
-
           {/* Amount & Date */}
           <div className="form-row">
             <div className="form-group">

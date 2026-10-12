@@ -46,12 +46,5 @@ export const DEFAULT_CATEGORIES = [
   { id: 'cat_health', name: 'Health & Medical', type: 'expense', color: '#ef4444', icon: 'HeartPulse' },
   { id: 'cat_subscriptions', name: 'Subscriptions', type: 'expense', color: '#a855f7', icon: 'CalendarSync' },
   { id: 'cat_travel', name: 'Travel & Vacations', type: 'expense', color: '#06b6d4', icon: 'Plane' },
-  { id: 'cat_other_exp', name: 'Miscellaneous', type: 'expense', color: '#64748b', icon: 'MoreHorizontal' },
-
-  // Income Categories
-  { id: 'cat_salary', name: 'Salary & Wages', type: 'income', color: '#10b981', icon: 'Briefcase' },
-  { id: 'cat_freelance', name: 'Freelance & Side Gig', type: 'income', color: '#06b6d4', icon: 'Laptop' },
-  { id: 'cat_investments', name: 'Investments & Dividends', type: 'income', color: '#84cc16', icon: 'TrendingUp' },
-  { id: 'cat_gifts', name: 'Gifts & Grants', type: 'income', color: '#d946ef', icon: 'Gift' },
-  { id: 'cat_other_inc', name: 'Other Income', type: 'income', color: '#64748b', icon: 'CircleDollarSign' }
+  { id: 'cat_other_exp', name: 'Miscellaneous', type: 'expense', color: '#64748b', icon: 'MoreHorizontal' }
 ];

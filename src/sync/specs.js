@@ -2,7 +2,15 @@
 // users/{uid}/{name}. Each spec converts state <-> [docId, docData] entries so
 // the sync engine can diff and merge records individually.
 
+import { DEFAULT_CATEGORIES } from '../data/initialData';
+
 const byIdEntries = (list) => list.map((item) => [item.id, item]);
+
+const DEFAULTS_BY_ID = new Map(DEFAULT_CATEGORIES.map((cat) => [cat.id, cat]));
+const isUntouchedDefault = (cat) => {
+  const def = DEFAULTS_BY_ID.get(cat.id);
+  return Boolean(def) && ['name', 'type', 'color', 'icon'].every((key) => def[key] === cat[key]);
+};
 
 export const SYNC_SPECS = {
   transactions: {
@@ -21,6 +29,9 @@ export const SYNC_SPECS = {
 
   // Categories keep their display order via sortIndex
   categories: {
+    // A new device starts with the built-in categories; when the account already
+    // has categories, don't upload unchanged ones so removed categories stay removed
+    skipOnMerge: ([, cat]) => isUntouchedDefault(cat),
     toEntries: (list) => list.map((cat, index) => [cat.id, { ...cat, sortIndex: index }]),
     fromEntries: (entries) =>
       entries

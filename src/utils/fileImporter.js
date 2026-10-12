@@ -450,7 +450,7 @@ export const mapRowsToTransactions = ({
   const fallbackExpenseCat =
     defaultCategory || (categories.find((c) => c.type === 'expense')?.id || 'cat_groceries');
   const fallbackIncomeCat =
-    categories.find((c) => c.type === 'income')?.id || 'cat_salary';
+    categories.find((c) => c.type === 'income')?.id || fallbackExpenseCat;
 
   const categoryLookupByName = new Map();
   categories.forEach((cat) => {
@@ -532,12 +532,8 @@ export const mapRowsToTransactions = ({
             type = 'expense';
             amount = Math.abs(parsedAmt);
           } else if (parsedAmt > 0) {
-            // If category is explicitly an expense category, prioritize that if amount is positive
-            if (foundCat && foundCat.type === 'expense') {
-              type = 'expense';
-            } else {
-              type = 'income';
-            }
+            // Money in (refunds, credits) — skipped on import
+            type = 'income';
             amount = parsedAmt;
           } else {
             amount = 0;
