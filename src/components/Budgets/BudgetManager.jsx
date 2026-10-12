@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getMonthName } from '../../utils/formatters';
 import { CategoryIcon } from '../UI/CategoryIcon';
 import {
   Target,
@@ -8,14 +8,18 @@ import {
   CheckCircle2,
   TrendingDown,
   Sparkles,
-  Edit3
+  Edit3,
+  CalendarDays
 } from 'lucide-react';
 
 export const BudgetManager = () => {
   const {
     categories,
-    budgets,
+    activeBudgets,
+    weeklyBudget,
+    budgetPlan,
     updateCategoryBudget,
+    updateWeeklyBudget,
     updateCategoryName,
     monthlyMetrics,
     currency,
@@ -25,12 +29,30 @@ export const BudgetManager = () => {
 
   const { totalBudget, totalExpenses, budgetRemaining, budgetUsagePercent } = monthlyMetrics;
   const expenseCategories = categories.filter((c) => c.type === 'expense');
+  const money = (amount) => formatCurrency(amount, currency.code, currency.symbol);
 
   const [editingCatId, setEditingCatId] = useState(null);
   const [tempBudgetAmount, setTempBudgetAmount] = useState('');
   const [editingNameId, setEditingNameId] = useState(null);
   const [tempName, setTempName] = useState('');
   const nameInputRef = useRef(null);
+
+  // Follows the saved value, including changes synced from another device
+  const [weeklyInput, setWeeklyInput] = useState('');
+  useEffect(() => {
+    setWeeklyInput(weeklyBudget > 0 ? String(weeklyBudget) : '');
+  }, [weeklyBudget]);
+
+  const handleSaveWeekly = (e) => {
+    e.preventDefault();
+    updateWeeklyBudget(weeklyInput);
+  };
+
+  const referenceLabel = budgetPlan?.referenceMonth
+    ? `${getMonthName(budgetPlan.referenceMonth)}${
+        budgetPlan.referenceYear !== Number(selectedYear) ? ` ${budgetPlan.referenceYear}` : ''
+      }`
+    : null;
 
   const handleStartNameEdit = (catId, currentName) => {
     setEditingNameId(catId);
@@ -55,6 +77,58 @@ export const BudgetManager = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Weekly Budget */}
+      <div className="glass-panel">
+        <div className="panel-header">
+          <div className="panel-title">
+            <CalendarDays size={22} color="var(--primary)" />
+            <span>Weekly Budget</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveWeekly} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ flex: '1 1 220px' }}>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              className="form-input"
+              placeholder={`Amount per week (${currency.symbol})`}
+              value={weeklyInput}
+              onChange={(e) => setWeeklyInput(e.target.value)}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ padding: '0.65rem 1.2rem' }}>
+            Save
+          </button>
+          {budgetPlan && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.65rem 1.2rem' }}
+              onClick={() => updateWeeklyBudget(0)}
+            >
+              Turn Off
+            </button>
+          )}
+        </form>
+
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.9rem', lineHeight: 1.5 }}>
+          {budgetPlan ? (
+            <>
+              {money(weeklyBudget)} × {budgetPlan.weeks} weeks ={' '}
+              <strong style={{ color: 'var(--text-main)' }}>{money(budgetPlan.monthlyBudget)}</strong> for{' '}
+              {getMonthName(selectedMonth)},{' '}
+              {referenceLabel
+                ? `split across categories by ${referenceLabel}'s spending.`
+                : 'not split across categories yet — there is no spending in the past 12 months to go by.'}
+            </>
+          ) : (
+            "Each month gets this amount for every week that starts in it, split across categories by last month's spending. Leave empty to set category targets yourself."
+          )}
+        </div>
+      </div>
+
       {/* Overview Cards */}
       <div className="glass-panel">
         <div className="panel-header">
@@ -75,7 +149,11 @@ export const BudgetManager = () => {
               {formatCurrency(totalBudget, currency.code, currency.symbol)}
             </div>
             <div className="metric-footer">
-              <span>Sum of all category targets</span>
+              <span>
+                {budgetPlan
+                  ? `${money(weeklyBudget)}/week × ${budgetPlan.weeks} weeks`
+                  : 'Sum of all category targets'}
+              </span>
             </div>
           </div>
 
@@ -126,7 +204,7 @@ export const BudgetManager = () => {
             <span>Category Budget Allocations</span>
           </div>
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Click edit to adjust monthly limits
+            {budgetPlan ? 'Set automatically from your weekly budget' : 'Click edit to adjust monthly limits'}
           </div>
         </div>
 
@@ -139,8 +217,8 @@ export const BudgetManager = () => {
         >
           {expenseCategories.map((cat) => {
             const spent = monthlyMetrics.categorySpendMap[cat.id] || 0;
-            const target = budgets[cat.id] || 0;
-            const isEditing = editingCatId === cat.id;
+            const target = activeBudgets[cat.id] || 0;
+            const isEditing = !budgetPlan && editingCatId === cat.id;
             const percent = target > 0 ? Math.round((spent / target) * 100) : spent > 0 ? 100 : 0;
             const isOver = target > 0 && spent > target;
             const remaining = Math.max(0, target - spent);
@@ -224,7 +302,7 @@ export const BudgetManager = () => {
                     </div>
                   </div>
 
-                  {!isEditing ? (
+                  {!isEditing && !budgetPlan ? (
                     <button
                       className="btn-icon"
                       style={{ width: '32px', height: '32px' }}
@@ -308,7 +386,9 @@ export const BudgetManager = () => {
                       fontSize: '0.82rem'
                     }}
                   >
-                    <span style={{ color: 'var(--text-muted)' }}>Target Limit:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {budgetPlan ? 'Auto Target:' : 'Target Limit:'}
+                    </span>
                     <span style={{ fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
                       {target > 0
                         ? formatCurrency(target, currency.code, currency.symbol)

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 export const SummaryCards = () => {
-  const { monthlyMetrics, currency } = useExpense();
+  const { monthlyMetrics, currency, weeklyBudget } = useExpense();
   const {
     totalExpenses,
     weeklyAverage,
@@ -52,7 +52,11 @@ export const SummaryCards = () => {
           <span className="badge-tag badge-neutral">
             {weeksCounted} {weeksCounted === 1 ? 'week' : 'weeks'}
           </span>
-          <span>Average this month</span>
+          <span>
+            {weeklyBudget > 0
+              ? `Budget ${formatCurrency(weeklyBudget, currency.code, currency.symbol)}/week`
+              : 'Average this month'}
+          </span>
         </div>
       </div>
     </div>

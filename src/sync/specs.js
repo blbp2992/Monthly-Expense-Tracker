@@ -35,6 +35,13 @@ export const SYNC_SPECS = {
     fromEntries: (entries) => Object.fromEntries(entries.map(([catId, data]) => [catId, data.amount]))
   },
 
+  // Single weekly budget doc; keeps the current value if none exists yet
+  budgetSettings: {
+    toEntries: (weeklyBudget) => [['settings', { weeklyBudget }]],
+    fromEntries: (entries, prev) =>
+      entries.find(([id]) => id === 'settings')?.[1].weeklyBudget ?? prev
+  },
+
   // { normalizedItemName: categoryId }
   itemCategoryMemory: {
     toEntries: (map) =>

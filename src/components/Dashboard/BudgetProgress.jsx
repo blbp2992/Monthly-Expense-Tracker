@@ -7,7 +7,7 @@ import { Target, ChevronRight, AlertTriangle } from 'lucide-react';
 export const BudgetProgress = () => {
   const {
     categories,
-    budgets,
+    activeBudgets,
     monthlyMetrics,
     currency,
     setActiveTab
@@ -21,7 +21,7 @@ export const BudgetProgress = () => {
   const budgetItems = expenseCategories
     .map((cat) => {
       const spent = categorySpendMap[cat.id] || 0;
-      const budget = budgets[cat.id] || 0;
+      const budget = activeBudgets[cat.id] || 0;
       const percentage = budget > 0 ? Math.round((spent / budget) * 100) : spent > 0 ? 100 : 0;
       const remaining = Math.max(0, budget - spent);
       const isOver = budget > 0 && spent > budget;

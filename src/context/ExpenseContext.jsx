@@ -21,6 +21,18 @@ const stripReceiptFiles = (transactions) =>
     return rest;
   });
 
+// Expense totals per category; receipts are split across their item categories
+const sumCategorySpend = (transactions) => {
+  const spend = {};
+  transactions.forEach((tx) => {
+    if (tx.type !== 'expense') return;
+    getCategoryAllocations(tx).forEach(({ categoryId, amount }) => {
+      spend[categoryId] = (spend[categoryId] || 0) + amount;
+    });
+  });
+  return spend;
+};
+
 const ExpenseContext = createContext();
 
 export const ExpenseProvider = ({ children }) => {
@@ -43,6 +55,11 @@ export const ExpenseProvider = ({ children }) => {
 
   const [budgets, setBudgets] = useState(() =>
     loadFromStorage('budgets', {})
+  );
+
+  // Weekly budget; when set (> 0) it replaces the manual category budgets
+  const [weeklyBudget, setWeeklyBudget] = useState(() =>
+    loadFromStorage('weekly_budget', 0)
   );
 
   const [subscriptions, setSubscriptions] = useState(() =>
@@ -111,6 +128,7 @@ export const ExpenseProvider = ({ children }) => {
       subscriptions: { value: subscriptions, setValue: setSubscriptions },
       categories: { value: categories, setValue: setCategories },
       budgets: { value: budgets, setValue: setBudgets },
+      budgetSettings: { value: weeklyBudget, setValue: setWeeklyBudget },
       itemCategoryMemory: { value: itemCategoryMemory, setValue: setItemCategoryMemory },
       preferences: { value: currency, setValue: setCurrency }
     },
@@ -134,6 +152,10 @@ export const ExpenseProvider = ({ children }) => {
   useEffect(() => {
     saveToStorage('budgets', budgets);
   }, [budgets]);
+
+  useEffect(() => {
+    saveToStorage('weekly_budget', weeklyBudget);
+  }, [weeklyBudget]);
 
   useEffect(() => {
     saveToStorage('subscriptions', subscriptions);
@@ -185,11 +207,55 @@ export const ExpenseProvider = ({ children }) => {
     return transactions.filter((t) => t.date && t.date.startsWith(prefix));
   }, [transactions, selectedYear, selectedMonth]);
 
+  // Weekly Budget Plan — the month gets the weekly budget for every week that starts
+  // in it, split across categories in proportion to last month's spending
+  const budgetPlan = useMemo(() => {
+    if (!(weeklyBudget > 0)) return null;
+    const weeks = Math.ceil(getDaysInMonth(selectedYear, selectedMonth) / 7);
+    const monthlyBudget = weeklyBudget * weeks;
+
+    // Last month, or the latest of the 12 before it with any spending
+    let reference = null;
+    let y = Number(selectedYear);
+    let m = Number(selectedMonth);
+    for (let i = 0; i < 12 && !reference; i++) {
+      m -= 1;
+      if (m < 1) {
+        m = 12;
+        y -= 1;
+      }
+      const prefix = `${y}-${String(m).padStart(2, '0')}`;
+      const spend = sumCategorySpend(transactions.filter((t) => t.date && t.date.startsWith(prefix)));
+      const total = Object.values(spend).reduce((acc, amt) => acc + amt, 0);
+      if (total > 0) reference = { year: y, month: m, spend, total };
+    }
+
+    const categoryBudgets = {};
+    if (reference) {
+      Object.entries(reference.spend).forEach(([categoryId, amount]) => {
+        if (amount > 0) {
+          categoryBudgets[categoryId] = Math.round((monthlyBudget * amount * 100) / reference.total) / 100;
+        }
+      });
+    }
+
+    return {
+      weeks,
+      monthlyBudget,
+      referenceYear: reference?.year,
+      referenceMonth: reference?.month,
+      categoryBudgets
+    };
+  }, [weeklyBudget, transactions, selectedYear, selectedMonth]);
+
+  // Category budgets in effect for the selected month
+  const activeBudgets = budgetPlan ? budgetPlan.categoryBudgets : budgets;
+
   // Financial Metrics Calculation for Selected Month
   const monthlyMetrics = useMemo(() => {
     let totalIncome = 0;
     let totalExpenses = 0;
-    const categorySpendMap = {};
+    const categorySpendMap = sumCategorySpend(currentMonthTransactions);
 
     currentMonthTransactions.forEach((tx) => {
       const amt = Number(tx.amount) || 0;
@@ -197,9 +263,6 @@ export const ExpenseProvider = ({ children }) => {
         totalIncome += amt;
       } else if (tx.type === 'expense') {
         totalExpenses += amt;
-        getCategoryAllocations(tx).forEach(({ categoryId, amount }) => {
-          categorySpendMap[categoryId] = (categorySpendMap[categoryId] || 0) + amount;
-        });
       }
     });
 
@@ -207,7 +270,9 @@ export const ExpenseProvider = ({ children }) => {
     const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : 0;
 
     // Total Budget sum
-    const totalBudget = Object.values(budgets).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+    const totalBudget = budgetPlan
+      ? budgetPlan.monthlyBudget
+      : Object.values(budgets).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
     const budgetRemaining = Math.max(0, totalBudget - totalExpenses);
     const budgetUsagePercent = totalBudget > 0 ? Math.min(100, Math.round((totalExpenses / totalBudget) * 100)) : 0;
 
@@ -227,7 +292,7 @@ export const ExpenseProvider = ({ children }) => {
       weeksCounted,
       weeklyAverage
     };
-  }, [currentMonthTransactions, budgets, selectedYear, selectedMonth]);
+  }, [currentMonthTransactions, budgets, budgetPlan, selectedYear, selectedMonth]);
 
   // Filtered and Sorted Transactions for List View
   const filteredTransactions = useMemo(() => {
@@ -367,6 +432,12 @@ export const ExpenseProvider = ({ children }) => {
     addToast('Budget target updated');
   };
 
+  const updateWeeklyBudget = (amount) => {
+    const value = Math.max(0, parseFloat(amount) || 0);
+    setWeeklyBudget(value);
+    addToast(value > 0 ? 'Weekly budget updated' : 'Weekly budget turned off');
+  };
+
   // Subscription Actions
   const addSubscription = (sub) => {
     const newSub = {
@@ -424,6 +495,7 @@ export const ExpenseProvider = ({ children }) => {
   const clearAllData = () => {
     setTransactions([]);
     setBudgets({});
+    setWeeklyBudget(0);
     setSubscriptions([]);
     addToast('All expense data cleared', 'info');
   };
@@ -474,6 +546,7 @@ export const ExpenseProvider = ({ children }) => {
       if (imported.transactions) setTransactions(stripReceiptFiles(imported.transactions));
       if (imported.categories) setCategories(imported.categories);
       if (imported.budgets) setBudgets(imported.budgets);
+      if (imported.weeklyBudget !== undefined) setWeeklyBudget(Number(imported.weeklyBudget) || 0);
       if (imported.subscriptions) setSubscriptions(imported.subscriptions);
       if (imported.currency) setCurrency(imported.currency);
       if (imported.itemCategoryMemory) setItemCategoryMemory(imported.itemCategoryMemory);
@@ -490,6 +563,9 @@ export const ExpenseProvider = ({ children }) => {
         transactions,
         categories,
         budgets,
+        weeklyBudget,
+        budgetPlan,
+        activeBudgets,
         subscriptions,
         currency,
         theme,
@@ -553,6 +629,7 @@ export const ExpenseProvider = ({ children }) => {
         duplicateTransaction,
 
         updateCategoryBudget,
+        updateWeeklyBudget,
 
         addSubscription,
         updateSubscription,

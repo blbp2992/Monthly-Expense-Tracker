@@ -52,6 +52,7 @@ export const SettingsView = () => {
     transactions,
     categories,
     budgets,
+    weeklyBudget,
     subscriptions,
     currency,
     setCurrency,
@@ -105,6 +106,7 @@ export const SettingsView = () => {
       transactions,
       categories,
       budgets,
+      weeklyBudget,
       subscriptions,
       currency,
       itemCategoryMemory
