@@ -92,7 +92,8 @@ export const parseReceiptWithGemini = async (
 
   const prompt = `Analyze this receipt (a photo or PDF) carefully. Extract all itemized lines, amounts, merchant name, date, tax, payment method, and map each item to the closest matching category ID from this list: [${categoryNames}].
 Category rules: judge each item individually by what the product actually is. First expand abbreviated supermarket names (e.g. "CKN" = chicken, "S/A" = South African, "FZN" = frozen). Prefer the most specific matching category over broad ones like Groceries, Food & Dining or Miscellaneous. Only use IDs from the list above.
-Item rules: "price" is the unit price and "qty" the quantity, so price x qty equals the line amount printed on the receipt.
+Item rules: "lineTotal" is the amount printed in the price column for that line — what the line costs in total, after any discount printed on the same line. "qty" is the quantity bought and "unitPrice" the price of one, if printed (e.g. "2 @ 4.25" means qty 2, unitPrice 4.25, lineTotal 8.50). Never multiply the printed amount by the quantity yourself. Include promotion or discount lines (e.g. "BUY 1 GET 1 FREE", "LESS 1.00") as their own items with a negative lineTotal and the category of the product they apply to. Do not add GST or tax lines as items.
+Total rules: "total" is the final amount paid as printed on the receipt (after discounts, including GST). "tax" is the GST or tax amount printed, for reference.
 Date rules: today is ${today}. Receipts are usually from Singapore, where dates are printed day-first (DD/MM/YY or DD/MM/YYYY), so "02/09/26" means 2 September 2026. A two-digit year "26" means 2026. Read the year digits exactly as printed; receipts are almost always recent and never in the future.
 Return ONLY a valid JSON object without markdown formatting, code blocks, or preamble. Use this exact structure:
 {
@@ -105,7 +106,8 @@ Return ONLY a valid JSON object without markdown formatting, code blocks, or pre
     {
       "name": "Item Description",
       "qty": 1,
-      "price": 0.00,
+      "unitPrice": 0.00,
+      "lineTotal": 0.00,
       "categoryId": "category_id_here"
     }
   ]

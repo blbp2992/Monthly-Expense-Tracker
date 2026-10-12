@@ -575,6 +575,18 @@ export const ExpenseProvider = ({ children }) => {
     rememberItemCategories([{ name: item.name, categoryId }]);
   };
 
+  // Replace a receipt's lines (corrected prices, quantities, removed lines); the
+  // amount paid stays as it is
+  const updateReceiptItems = (txId, receiptItems) => {
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.id === txId
+          ? { ...tx, receiptItems, categoryId: getPrimaryCategoryId(receiptItems, tx.categoryId) }
+          : tx
+      )
+    );
+  };
+
   const importBackupData = (imported) => {
     try {
       if (imported.transactions) setTransactions(stripReceiptFiles(imported.transactions));
@@ -683,6 +695,7 @@ export const ExpenseProvider = ({ children }) => {
         rememberItemCategories,
         applyItemCategoryMemory,
         updateReceiptItemCategory,
+        updateReceiptItems,
         addToast,
         removeToast
       }}

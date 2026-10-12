@@ -45,9 +45,9 @@ export const CategoryExplorer = () => {
     const stats = new Map();
     items.forEach((item) => {
       const s = stats.get(item.categoryId) || { categoryId: item.categoryId, total: 0, count: 0, top: null };
-      s.total += item.total;
+      s.total += item.amount;
       s.count += 1;
-      if (!s.top || item.total > s.top.total) s.top = item;
+      if (!s.top || item.amount > s.top.amount) s.top = item;
       stats.set(item.categoryId, s);
     });
     return [...stats.values()].sort((a, b) => b.total - a.total);
@@ -61,13 +61,13 @@ export const CategoryExplorer = () => {
       .filter((item) => !query || item.name.toLowerCase().includes(query))
       .sort((a, b) => {
         if (sort.key === 'name') return dir * a.name.localeCompare(b.name);
-        if (sort.key === 'date') return dir * a.date.localeCompare(b.date) || b.total - a.total;
-        return dir * (a.total - b.total);
+        if (sort.key === 'date') return dir * a.date.localeCompare(b.date) || b.amount - a.amount;
+        return dir * (a.amount - b.amount);
       });
   }, [items, selectedCatId, search, sort]);
 
-  const visibleTotal = visibleItems.reduce((acc, item) => acc + item.total, 0);
-  const priciest = visibleItems.reduce((top, item) => (!top || item.total > top.total ? item : top), null);
+  const visibleTotal = visibleItems.reduce((acc, item) => acc + item.amount, 0);
+  const priciest = visibleItems.reduce((top, item) => (!top || item.amount > top.amount ? item : top), null);
 
   const handleSort = (key) => {
     setSort((prev) =>
@@ -186,9 +186,9 @@ export const CategoryExplorer = () => {
                 <div
                   className="tx-date-sub"
                   style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  title={`${s.top.name} — ${money(s.top.total)}`}
+                  title={`${s.top.name} — ${money(s.top.amount)}`}
                 >
-                  Top: {s.top.name} · {money(s.top.total)}
+                  Top: {s.top.name} · {money(s.top.amount)}
                 </div>
               </button>
             );
@@ -223,7 +223,7 @@ export const CategoryExplorer = () => {
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
             <strong style={{ color: 'var(--text-main)' }}>{money(visibleTotal)}</strong> across {visibleItems.length}{' '}
             {visibleItems.length === 1 ? 'item' : 'items'} · average {money(visibleTotal / visibleItems.length)} · most
-            expensive: <strong style={{ color: 'var(--text-main)' }}>{priciest.name}</strong> ({money(priciest.total)},{' '}
+            expensive: <strong style={{ color: 'var(--text-main)' }}>{priciest.name}</strong> ({money(priciest.amount)},{' '}
             {formatDate(priciest.date)})
           </div>
         )}
@@ -271,10 +271,10 @@ export const CategoryExplorer = () => {
                         {period === 'month' ? formatShortDate(item.date) : formatDate(item.date)}
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div className="tx-amount">{money(item.total)}</div>
-                        {item.qty > 1 && (
+                        <div className="tx-amount">{money(item.amount)}</div>
+                        {(item.qty > 1 || Math.abs(item.printed - item.amount) >= 0.005) && (
                           <div className="tx-date-sub">
-                            {item.qty} × {money(item.price)}
+                            {item.qty > 1 ? `${item.qty} × ${money(item.price)}` : money(item.printed)} on receipt
                           </div>
                         )}
                       </td>
@@ -287,7 +287,8 @@ export const CategoryExplorer = () => {
         )}
 
         <div className="tx-date-sub" style={{ marginTop: '0.75rem' }}>
-          Receipt items show the price printed on the receipt, before tax and receipt-wide discounts.
+          Item prices are each item's share of what you paid, so they add up to the receipt total. When that
+          differs from the printed price, the receipt price is shown underneath.
         </div>
       </div>
     </div>
