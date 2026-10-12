@@ -3,7 +3,7 @@ import { useExpense } from '../../context/ExpenseContext';
 import { formatCurrency } from '../../utils/formatters';
 import {
   TrendingDown,
-  CalendarClock,
+  CalendarDays,
   ArrowDownRight
 } from 'lucide-react';
 
@@ -11,8 +11,8 @@ export const SummaryCards = () => {
   const { monthlyMetrics, currency } = useExpense();
   const {
     totalExpenses,
-    safeDailyAllowance,
-    remainingDays
+    weeklyAverage,
+    weeksCounted
   } = monthlyMetrics;
 
   return (
@@ -36,23 +36,23 @@ export const SummaryCards = () => {
         </div>
       </div>
 
-      {/* Daily Safe Allowance */}
+      {/* Weekly Average */}
       <div className="metric-card">
         <div className="metric-header">
-          <span className="metric-title">Daily Safe Spend</span>
+          <span className="metric-title">Weekly Average</span>
           <div className="metric-icon-wrap metric-icon-allowance">
-            <CalendarClock size={20} />
+            <CalendarDays size={20} />
           </div>
         </div>
         <div className="metric-value" style={{ color: 'var(--warning-amber)' }}>
-          {formatCurrency(safeDailyAllowance, currency.code, currency.symbol)}
-          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>/day</span>
+          {formatCurrency(weeklyAverage, currency.code, currency.symbol)}
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>/week</span>
         </div>
         <div className="metric-footer">
           <span className="badge-tag badge-neutral">
-            {remainingDays} days left
+            {weeksCounted} {weeksCounted === 1 ? 'week' : 'weeks'}
           </span>
-          <span>within budget</span>
+          <span>Average this month</span>
         </div>
       </div>
     </div>

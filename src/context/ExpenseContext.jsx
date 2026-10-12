@@ -3,7 +3,7 @@ import { DEFAULT_CATEGORIES, DEFAULT_CURRENCIES } from '../data/initialData';
 import { loadFromStorage, saveToStorage } from '../utils/storage';
 import { removeLegacyDemoData } from '../utils/demoCleanup';
 import { useCloudSync } from '../sync/useCloudSync';
-import { getDaysInMonth, getRemainingDaysInMonth } from '../utils/formatters';
+import { getDaysInMonth, getElapsedDaysInMonth } from '../utils/formatters';
 import {
   getCategoryAllocations,
   getPrimaryCategoryId,
@@ -211,9 +211,9 @@ export const ExpenseProvider = ({ children }) => {
     const budgetRemaining = Math.max(0, totalBudget - totalExpenses);
     const budgetUsagePercent = totalBudget > 0 ? Math.min(100, Math.round((totalExpenses / totalBudget) * 100)) : 0;
 
-    // Safe Daily Spending Allowance
-    const remainingDays = getRemainingDaysInMonth(selectedYear, selectedMonth);
-    const safeDailyAllowance = budgetRemaining > 0 ? (budgetRemaining / remainingDays) : 0;
+    // Weekly Average Spend — partial weeks count as whole so one early shop isn't inflated
+    const weeksCounted = Math.ceil(getElapsedDaysInMonth(selectedYear, selectedMonth) / 7);
+    const weeklyAverage = totalExpenses / weeksCounted;
 
     return {
       totalIncome,
@@ -224,8 +224,8 @@ export const ExpenseProvider = ({ children }) => {
       totalBudget,
       budgetRemaining,
       budgetUsagePercent,
-      remainingDays,
-      safeDailyAllowance
+      weeksCounted,
+      weeklyAverage
     };
   }, [currentMonthTransactions, budgets, selectedYear, selectedMonth]);
 

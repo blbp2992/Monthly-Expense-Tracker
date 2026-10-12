@@ -45,7 +45,8 @@ export const getDaysInMonth = (year, month) => {
   return new Date(year, month, 0).getDate();
 };
 
-export const getRemainingDaysInMonth = (year, month) => {
+// Days of the month counted so far: up to today for the current month, the whole month otherwise
+export const getElapsedDaysInMonth = (year, month) => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -54,7 +55,5 @@ export const getRemainingDaysInMonth = (year, month) => {
     return getDaysInMonth(year, month);
   }
 
-  const daysInMonth = getDaysInMonth(year, month);
-  const todayDate = now.getDate();
-  return Math.max(1, daysInMonth - todayDate + 1);
+  return now.getDate();
 };
