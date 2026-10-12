@@ -67,6 +67,10 @@ export const ReceiptScannerModal = () => {
   if (!isReceiptScannerOpen) return null;
 
   const expenseCategories = categories.filter((c) => c.type === 'expense');
+  // Miscellaneous, or the first expense category if it was removed
+  const fallbackCategoryId = expenseCategories.some((c) => c.id === 'cat_other_exp')
+    ? 'cat_other_exp'
+    : expenseCategories[0]?.id;
   const dateCheck = scanResult ? checkReceiptDate(scanResult.date) : null;
 
   const formatReceiptDate = (iso) =>
@@ -131,9 +135,6 @@ export const ReceiptScannerModal = () => {
 
       // Clean up item values, then override AI categories with ones the user taught us
       const validCategoryIds = new Set(expenseCategories.map((c) => c.id));
-      const fallbackCategoryId = validCategoryIds.has('cat_other_exp')
-        ? 'cat_other_exp'
-        : expenseCategories[0]?.id;
       const items = applyItemCategoryMemory(
         parsed.items.map((it) => ({
           name: String(it.name || '').trim() || 'Item',
@@ -280,7 +281,7 @@ export const ReceiptScannerModal = () => {
       txList.push({
         type: 'expense',
         amount: scanResult.tax,
-        categoryId: 'cat_other_exp',
+        categoryId: fallbackCategoryId,
         date: scanResult.date,
         paymentMethod: scanResult.paymentMethod || 'credit_card',
         description: `${scanResult.merchant} (Tax & Fees)`,

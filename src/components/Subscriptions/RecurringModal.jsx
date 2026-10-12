@@ -22,18 +22,23 @@ export const RecurringModal = () => {
   const [dueDay, setDueDay] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('credit_card');
 
+  // Subscriptions, or the first expense category if it was removed
+  const defaultCategoryId = categories.some((c) => c.id === 'cat_subscriptions')
+    ? 'cat_subscriptions'
+    : categories.find((c) => c.type === 'expense')?.id || '';
+
   useEffect(() => {
     if (editingSub) {
       setName(editingSub.name || '');
       setAmount(editingSub.amount || '');
-      setCategoryId(editingSub.categoryId || 'cat_subscriptions');
+      setCategoryId(editingSub.categoryId || defaultCategoryId);
       setBillingCycle(editingSub.billingCycle || 'monthly');
       setDueDay(editingSub.dueDay || 1);
       setPaymentMethod(editingSub.paymentMethod || 'credit_card');
     } else {
       setName('');
       setAmount('');
-      setCategoryId('cat_subscriptions');
+      setCategoryId(defaultCategoryId);
       setBillingCycle('monthly');
       setDueDay(1);
       setPaymentMethod('credit_card');

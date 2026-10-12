@@ -48,10 +48,16 @@ export const ExpenseProvider = ({ children }) => {
   const [categories, setCategories] = useState(() => {
     const saved = loadFromStorage('categories', null);
     if (!saved) return DEFAULT_CATEGORIES;
+    // Add built-in categories this device hasn't seen yet, without bringing back deleted ones
+    const seenDefaults = new Set(loadFromStorage('seen_default_categories', []));
     const existingIds = new Set(saved.map((c) => c.id));
-    const toAdd = DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+    const toAdd = DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id) && !seenDefaults.has(c.id));
     return [...saved, ...toAdd];
   });
+
+  useEffect(() => {
+    saveToStorage('seen_default_categories', DEFAULT_CATEGORIES.map((c) => c.id));
+  }, []);
 
   const [budgets, setBudgets] = useState(() =>
     loadFromStorage('budgets', {})
@@ -247,6 +253,21 @@ export const ExpenseProvider = ({ children }) => {
       categoryBudgets
     };
   }, [weeklyBudget, transactions, selectedYear, selectedMonth]);
+
+  // How many transactions and recurring bills use each category (a receipt counts once per category)
+  const categoryUsage = useMemo(() => {
+    const usage = {};
+    const count = (id) => {
+      if (id) usage[id] = (usage[id] || 0) + 1;
+    };
+    transactions.forEach((tx) => {
+      const ids = new Set([tx.categoryId]);
+      (tx.receiptItems || []).forEach((item) => ids.add(item.categoryId));
+      ids.forEach(count);
+    });
+    subscriptions.forEach((sub) => count(sub.categoryId));
+    return usage;
+  }, [transactions, subscriptions]);
 
   // Category budgets in effect for the selected month
   const activeBudgets = budgetPlan ? budgetPlan.categoryBudgets : budgets;
@@ -478,9 +499,22 @@ export const ExpenseProvider = ({ children }) => {
     addToast(`Added category "${newCat.name}"`);
   };
 
-  const deleteCategory = (id) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    addToast('Category deleted', 'info');
+  const deleteCategories = (ids) => {
+    const removed = new Set(ids);
+    setCategories((prev) => prev.filter((c) => !removed.has(c.id)));
+    // Drop budget targets and remembered receipt items that point at them
+    setBudgets((prev) => Object.fromEntries(Object.entries(prev).filter(([catId]) => !removed.has(catId))));
+    setItemCategoryMemory((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([, catId]) => !removed.has(catId)))
+    );
+    addToast(ids.length === 1 ? 'Category deleted' : `${ids.length} categories deleted`, 'info');
+  };
+
+  const restoreDefaultCategory = (id) => {
+    const cat = DEFAULT_CATEGORIES.find((c) => c.id === id);
+    if (!cat) return;
+    setCategories((prev) => (prev.some((c) => c.id === id) ? prev : [...prev, cat]));
+    addToast(`Added "${cat.name}" back`);
   };
 
   const updateCategoryName = (id, newName) => {
@@ -637,7 +671,9 @@ export const ExpenseProvider = ({ children }) => {
         toggleSubscription,
 
         addCategory,
-        deleteCategory,
+        deleteCategories,
+        restoreDefaultCategory,
+        categoryUsage,
         updateCategoryName,
 
         clearAllData,

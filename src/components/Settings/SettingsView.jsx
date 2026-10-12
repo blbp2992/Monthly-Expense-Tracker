@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
-import { DEFAULT_CURRENCIES } from '../../data/initialData';
+import { DEFAULT_CATEGORIES, DEFAULT_CURRENCIES } from '../../data/initialData';
 import { exportDataAsJSON } from '../../utils/storage';
 import { CategoryIcon } from '../UI/CategoryIcon';
 import { CloudSyncPanel } from './CloudSyncPanel';
@@ -62,7 +62,9 @@ export const SettingsView = () => {
     setGeminiApiKey,
     setIsFileImportOpen,
     addCategory,
-    deleteCategory,
+    deleteCategories,
+    restoreDefaultCategory,
+    categoryUsage,
     clearAllData,
     importBackupData,
     itemCategoryMemory,
@@ -97,6 +99,16 @@ export const SettingsView = () => {
     });
 
     setNewCatName('');
+  };
+
+  const unusedCategories = categories.filter((c) => !categoryUsage[c.id]);
+  const removedDefaults = DEFAULT_CATEGORIES.filter((d) => !categories.some((c) => c.id === d.id));
+
+  const handleRemoveUnused = () => {
+    const names = unusedCategories.map((c) => c.name).join(', ');
+    if (window.confirm(`Remove ${unusedCategories.length} unused categories?\n\n${names}`)) {
+      deleteCategories(unusedCategories.map((c) => c.id));
+    }
   };
 
   const handleExportBackup = () => {
@@ -247,6 +259,12 @@ export const SettingsView = () => {
             <Palette size={20} color="var(--accent-purple)" />
             <span>Custom Category Manager</span>
           </div>
+          {unusedCategories.length > 0 && (
+            <button type="button" className="btn btn-secondary" onClick={handleRemoveUnused}>
+              <Trash2 size={14} />
+              <span>Remove {unusedCategories.length} Unused</span>
+            </button>
+          )}
         </div>
 
         {/* Add Category Form */}
@@ -328,53 +346,92 @@ export const SettingsView = () => {
             gap: '0.85rem'
           }}
         >
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.65rem 0.85rem',
-                background: 'var(--bg-card)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <div
-                  className="category-pill"
-                  style={{
-                    backgroundColor: `${cat.color}22`,
-                    color: cat.color
-                  }}
-                >
-                  <CategoryIcon name={cat.icon} size={15} color={cat.color} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cat.name}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                    {cat.type}
-                  </div>
-                </div>
-              </div>
-
-              {/* Allow delete if custom */}
-              <button
-                className="btn-icon"
-                style={{ width: '28px', height: '28px', color: 'var(--expense-red)' }}
-                title="Delete Category"
-                onClick={() => {
-                  if (window.confirm(`Delete category "${cat.name}"?`)) {
-                    deleteCategory(cat.id);
-                  }
+          {categories.map((cat) => {
+            const uses = categoryUsage[cat.id] || 0;
+            return (
+              <div
+                key={cat.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.65rem 0.85rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)'
                 }}
               >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div
+                    className="category-pill"
+                    style={{
+                      backgroundColor: `${cat.color}22`,
+                      color: cat.color
+                    }}
+                  >
+                    <CategoryIcon name={cat.icon} size={15} color={cat.color} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cat.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span style={{ textTransform: 'capitalize' }}>{cat.type}</span>
+                      {' · '}
+                      {uses > 0 ? `Used ${uses} ${uses === 1 ? 'time' : 'times'}` : 'Unused'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* In-use categories can't be deleted, so no transaction loses its category */}
+                <button
+                  className="btn-icon"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    color: 'var(--expense-red)',
+                    opacity: uses > 0 ? 0.3 : 1,
+                    cursor: uses > 0 ? 'not-allowed' : 'pointer'
+                  }}
+                  title={
+                    uses > 0
+                      ? `Used ${uses} ${uses === 1 ? 'time' : 'times'} — move those to another category before deleting`
+                      : 'Delete Category'
+                  }
+                  disabled={uses > 0}
+                  onClick={() => {
+                    if (window.confirm(`Delete category "${cat.name}"?`)) {
+                      deleteCategories([cat.id]);
+                    }
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Built-in categories that were removed, ready to add back */}
+        {removedDefaults.length > 0 && (
+          <div style={{ marginTop: '1.25rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
+              Removed built-in categories — click one to add it back:
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {removedDefaults.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                  onClick={() => restoreDefaultCategory(cat.id)}
+                >
+                  <Plus size={13} />
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Spreadsheet Import & Export Hub */}
