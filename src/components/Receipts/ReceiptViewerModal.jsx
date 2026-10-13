@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useExpense } from '../../context/ExpenseContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import {
@@ -8,7 +8,7 @@ import {
   TALLY_TOLERANCE
 } from '../../utils/receiptCategories';
 import { CategoryIcon } from '../UI/CategoryIcon';
-import { X, ShoppingCart, AlertCircle, CheckCircle2, Trash2, Wand2 } from 'lucide-react';
+import { X, ShoppingCart, AlertCircle, CheckCircle2, Trash2, Wand2, Plus } from 'lucide-react';
 
 export const ReceiptViewerModal = () => {
   const {
@@ -21,6 +21,11 @@ export const ReceiptViewerModal = () => {
     updateReceiptItems,
     addToast
   } = useExpense();
+
+  // New line being added (e.g. an item the scanner missed); cleared per receipt
+  const emptyLine = { name: '', categoryId: '', qty: '1', amount: '' };
+  const [newLine, setNewLine] = useState(emptyLine);
+  useEffect(() => setNewLine(emptyLine), [receiptViewerTx?.id]);
 
   if (!receiptViewerTx) return null;
 
@@ -37,6 +42,9 @@ export const ReceiptViewerModal = () => {
   const hasItems = tx.receiptItems && tx.receiptItems.length > 0;
   const expenseCategories = categories.filter((c) => c.type === 'expense');
   const allocations = getCategoryAllocations(tx).sort((a, b) => b.amount - a.amount);
+  const defaultLineCategoryId = expenseCategories.some((c) => c.id === tx.categoryId)
+    ? tx.categoryId
+    : expenseCategories[0]?.id;
 
   const money = (value) => formatCurrency(value, currency.code, currency.symbol);
   const itemsTotal = hasItems ? getItemsTotal(tx.receiptItems) : 0;
@@ -63,6 +71,21 @@ export const ReceiptViewerModal = () => {
   const handleDeleteLine = (index) => {
     if (!window.confirm(`Remove "${tx.receiptItems[index].name}" from this receipt?`)) return;
     updateReceiptItems(tx.id, tx.receiptItems.filter((_, i) => i !== index));
+  };
+
+  const handleAddLine = (e) => {
+    e.preventDefault();
+    const name = newLine.name.trim();
+    const qty = Math.max(1, Math.round(parseFloat(newLine.qty) || 1));
+    const amount = parseFloat(newLine.amount);
+    if (!name || !Number.isFinite(amount) || amount === 0) return;
+    const categoryId = newLine.categoryId || defaultLineCategoryId;
+    updateReceiptItems(tx.id, [
+      ...tx.receiptItems,
+      { name, qty, price: Math.round((amount / qty) * 10000) / 10000, categoryId }
+    ]);
+    setNewLine(emptyLine);
+    addToast(`Added "${name}" to this receipt`);
   };
 
   const handleApplyPriceFix = () => {
@@ -300,6 +323,62 @@ export const ReceiptViewerModal = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Add a line the scanner missed; a negative amount adds a discount */}
+              <form
+                onSubmit={handleAddLine}
+                style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem', alignItems: 'center' }}
+              >
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ flex: '1 1 160px', padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                  placeholder="Item name"
+                  value={newLine.name}
+                  onChange={(e) => setNewLine({ ...newLine, name: e.target.value })}
+                />
+                <select
+                  className="form-input"
+                  style={{ flex: '1 1 120px', padding: '0.35rem 0.45rem', fontSize: '0.8rem' }}
+                  value={newLine.categoryId || defaultLineCategoryId}
+                  onChange={(e) => setNewLine({ ...newLine, categoryId: e.target.value })}
+                >
+                  {expenseCategories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="form-input"
+                  style={{ width: '3.5rem', padding: '0.35rem 0.4rem', fontSize: '0.8rem', textAlign: 'center' }}
+                  aria-label="Quantity"
+                  value={newLine.qty}
+                  onChange={(e) => setNewLine({ ...newLine, qty: e.target.value })}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-input"
+                  style={{ width: '5.5rem', padding: '0.35rem 0.4rem', fontSize: '0.8rem', textAlign: 'right' }}
+                  placeholder="Amount"
+                  aria-label="Line amount"
+                  value={newLine.amount}
+                  onChange={(e) => setNewLine({ ...newLine, amount: e.target.value })}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.7rem' }}
+                  disabled={!newLine.name.trim() || !parseFloat(newLine.amount)}
+                >
+                  <Plus size={13} />
+                  <span>Add Line</span>
+                </button>
+              </form>
             </div>
           )}
 
