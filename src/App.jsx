@@ -16,6 +16,7 @@ import { ReceiptScannerModal } from './components/Receipts/ReceiptScannerModal';
 import { ReceiptViewerModal } from './components/Receipts/ReceiptViewerModal';
 import { FileImportModal } from './components/Transactions/FileImportModal';
 import { ToastContainer } from './components/UI/ToastContainer';
+import { UpdateBanner } from './components/UI/UpdateBanner';
 
 const MainApp = () => {
   const { activeTab } = useExpense();
@@ -57,6 +58,7 @@ const MainApp = () => {
       <ReceiptViewerModal />
       <FileImportModal />
       <ToastContainer />
+      <UpdateBanner />
     </div>
   );
 };

@@ -195,7 +195,7 @@ export const ReceiptViewerModal = () => {
                 {itemsTally ? <CheckCircle2 size={15} style={{ flexShrink: 0 }} /> : <AlertCircle size={15} style={{ flexShrink: 0 }} />}
                 <div>
                   {itemsTally ? (
-                    <>Items add up to the amount paid ({money(itemsTotal)}).</>
+                    <>Items match the amount paid ({money(tx.amount)}).</>
                   ) : (
                     <>
                       Items add up to {money(itemsTotal)}, {money(Math.abs(itemsDiff))}{' '}

@@ -916,6 +916,54 @@ button, input, select, textarea {
 }
 
 /* Toast System */
+/* New-version bar, top centre so it doesn't cover toasts */
+.update-banner {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  background: var(--primary);
+  color: #ffffff;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.update-banner-refresh,
+.update-banner-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  cursor: pointer;
+  color: #ffffff;
+  font: inherit;
+}
+
+.update-banner-refresh {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+}
+
+.update-banner-refresh:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.update-banner-close {
+  background: transparent;
+  padding: 0.3rem;
+  opacity: 0.8;
+}
+
 .toast-container {
   position: fixed;
   bottom: 2rem;
